@@ -1,0 +1,9 @@
+solace:
+    host: "tcp://localhost:55555" # Solace Event Broker 주소, ws://localhost:55555 웹소켓 or wss://~~ 보안웹소켓 으로 통신가능
+    msgVpn: "TestVPN"            # 메시지 VPN 이름
+    clientUsername: "TestUser"   # 클라이언트 사용자 이름
+    clientPassword: "TestPassword" # 클라이언트 비밀번호
+server:
+  port: 8081
+
+debug: true

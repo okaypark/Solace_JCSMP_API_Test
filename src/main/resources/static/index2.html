@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spring Boot Pub/Sub</title>
+  <style>
+    body {
+        display: flex;
+        justify-content: space-between;
+        padding: 20px;
+    }
+    .half {
+        width: 45%;
+        padding: 20px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+    .pub {
+        background-color: #f9f9f9;
+    }
+    .sub {
+        background-color: #eafaf1;
+    }
+    h2 {
+        margin-top: 0;
+    }
+    ul {
+        list-style-type: none;
+        padding: 0;
+    }
+    ul li {
+        padding: 5px 0;
+        border-bottom: 1px solid #ddd;
+    }
+  </style>
+</head>
+<body>
+<!-- Publisher Section -->
+<div class="half pub">
+  <h2>Publisher</h2>
+  <p><strong>Status:</strong> <span id="connect-pub-status">Not Connected</span></p>
+
+  <button onclick="connectPublisher()">Connect Publisher</button>
+
+  <h3>Publish Message</h3>
+  <label for="pub-topic">Topic:</label>
+  <input id="pub-topic" type="text" placeholder="Enter topic"><br/>
+
+  <label for="pub-message">Message:</label>
+  <input id="pub-message" type="text" placeholder="Enter message"><br/>
+
+  <label for="pub-count">Count:</label>
+  <input id="pub-count" type="number" value="1" min="1"><br/>
+
+  <button onclick="publish()">Send</button>
+  <p id="pub-status">Waiting to publish...</p>
+</div>
+
+<!-- Subscriber Section -->
+<div class="half sub">
+  <h2>Subscriber</h2>
+  <p><strong>Status:</strong> <span id="connect-sub-status">Not Connected</span></p>
+
+  <button onclick="connectSubscriber()">Connect Subscriber</button>
+
+  <h3>Subscribe to Topic</h3>
+  <label for="sub-topic">Topic:</label>
+  <input id="sub-topic" type="text" placeholder="Enter topic"><br/>
+
+  <button onclick="subscribe()">Subscribe</button>
+  <p id="subscribe-status">Not Subscribed</p>
+
+  <h3>Received Messages</h3>
+  <ul id="message-list">
+    <li>No messages received yet.</li>
+  </ul>
+</div>
+
+<script>
+  let publisherConnected = false;
+  let subscriberConnected = false;
+  let subscribedToTopic = false;
+
+  const ws = new WebSocket("ws://localhost:8081/ws/messages"); // WebSocket 서버 주소
+
+  ws.onmessage = (event) => {
+      addMessageToList(event.data); // WebSocket 메시지를 수신하면 목록에 추가
+  };
+
+  // Connect Publisher
+  function connectPublisher() {
+      fetch('/api/publisher/connect', { method: 'POST' })
+          .then(response => response.text())
+          .then(data => {
+              console.log('Publisher Connected:', data);
+              document.getElementById('connect-pub-status').textContent = "Connected";
+              publisherConnected = true;
+          })
+          .catch(err => {
+              console.error('Publisher Connection Failed:', err);
+              document.getElementById('connect-pub-status').textContent = "Connection Failed";
+          });
+  }
+
+  // Connect Subscriber
+  function connectSubscriber() {
+      fetch('/api/subscriber/connect', { method: 'POST' })
+          .then(response => response.text())
+          .then(data => {
+              console.log('Subscriber Connected:', data);
+              document.getElementById('connect-sub-status').textContent = "Connected";
+              subscriberConnected = true;
+          })
+          .catch(err => {
+              console.error('Subscriber Connection Failed:', err);
+              document.getElementById('connect-sub-status').textContent = "Connection Failed";
+          });
+  }
+
+  // Subscribe to a Topic
+  function subscribe() {
+      if (!subscriberConnected) {
+          alert("Please connect the subscriber first!");
+          return;
+      }
+      if (subscribedToTopic) {
+          alert("You are already subscribed!");
+          return;
+      }
+
+      const topic = document.getElementById('sub-topic').value.trim();
+      if (!topic) {
+          alert("Please enter a topic to subscribe.");
+          return;
+      }
+
+      fetch('/api/subscriber/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic })
+      })
+      .then(response => response.text())
+      .then(data => {
+          console.log('Subscribed:', data);
+          subscribedToTopic = true;
+          document.getElementById('subscribe-status').textContent = `Subscribed to topic: ${topic}`;
+      })
+      .catch(err => {
+          console.error('Subscribe Failed:', err);
+          alert("Failed to subscribe. Please check the topic or your network.");
+      });
+  }
+
+  // Publish a Message
+  function publish() {
+      if (!publisherConnected) {
+          alert("Please connect the publisher first!");
+          return;
+      }
+
+      const topic = document.getElementById('pub-topic').value.trim();
+      const message = document.getElementById('pub-message').value.trim();
+      const count = document.getElementById('pub-count').value;
+
+      if (!topic || !message || !count) {
+          alert("Please fill out all fields before publishing.");
+          return;
+      }
+
+      fetch('/api/publisher/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, message, count })
+      })
+      .then(response => response.text())
+      .then(data => {
+          console.log('Message Published:', data);
+          document.getElementById('pub-status').textContent = "Message successfully published!";
+      })
+      .catch(err => {
+          console.error('Publish Failed:', err);
+          document.getElementById('pub-status').textContent = "Failed to publish.";
+      });
+  }
+
+  // Add Received Message to List
+  function addMessageToList(message) {
+      const list = document.getElementById('message-list');
+      const noMessages = list.querySelector('li');
+      if (noMessages && noMessages.textContent === 'No messages received yet.') {
+          list.innerHTML = ''; // Clear default message
+      }
+
+      const li = document.createElement('li');
+      li.textContent = `Received: ${message}`;
+      list.appendChild(li);
+  }
+
+
+</script>
+</body>
+</html>

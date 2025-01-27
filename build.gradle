@@ -1,0 +1,50 @@
+plugins {
+    id 'org.springframework.boot' version '3.1.0'
+    id 'io.spring.dependency-management' version '1.1.0'
+    id 'java'
+}
+
+group = 'me.park'
+version = '1.0.0'
+java {
+    sourceCompatibility = '17'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://solace.jfrog.io/artifactory/solace-maven-releases"
+    }
+}
+
+dependencies {
+    // Spring Boot 기본 의존성
+    implementation 'org.springframework.boot:spring-boot-starter'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    // Spring 관련 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Reactor Core Library for Reactive Streams
+    implementation 'io.projectreactor:reactor-core:3.5.7'
+
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
+    // JSON 처리 (필요 시)
+    implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // Solace Java Spring Boot Starter
+    implementation "com.solace.spring.boot:solace-java-spring-boot-starter:5.2.0"
+    implementation 'com.solacesystems:sol-jcsmp:10.15.0'
+    compileOnly 'org.projectlombok:lombok:1.18.28' // 최신 버전 확인
+    annotationProcessor 'org.projectlombok:lombok:1.18.28' // Annotation 처리기 추가
+
+    // MQTT 의존성 추가
+    implementation "org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.1.0"
+
+
+    // 테스트 의존성
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
