@@ -1,112 +1,74 @@
 @startuml
+autonumber
 
-' Solace Event Broker (외부 시스템)
-class "Solace Event Broker" {
-    + Handle Message Publish
-    + Handle Message Subscribe
-}
+actor Client as C
+participant "index.html" as UI
+participant PublisherController as PC
+participant PublisherService as PS
+participant Publisher as P
+participant JCSMPFactory as F
+participant JCSMPSession as S
+participant XMLMessageProducer as MP
+participant "Solace Event Broker" as Broker #aqua
 
-' 그룹핑: Spring 기반 애플리케이션 컨텍스트
-package "Spring Application" {
+participant SubscriberController as SC
+participant SubscriberService as SS
+participant Subscriber as Sub
+participant MessageWebSocketHandler as WSH
+participant XMLMessageConsumer as MC
+participant XMLMessageListener as ML
 
-    class SolaceConfig {
-        - String solaceHost
-        - String msgVpn
-        - String solaceUsername
-        - String solacePassword
-        - JCSMPProperties properties
-        + JCSMPSession initJSCMPSession(): JCSMPSession
-        + void setIgnoreDuplicateSubscriptionError()
-    }
+== 메시지 발행(Message Publish) 워크플로우 ==
+C -> UI : HTTP POST /publisher/connect
+UI -> PC : connect()
+PC -> PS : connect()
+PS -> P : connect()
+P -> S : connect()
+activate S
+S --> P : 연결 완료
+deactivate S
 
-    class WebSocketConfig {
-        + WebSocketConfig(MessageWebSocketHandler messageWebSocketHandler)
-        + void registerWebSocketHandlers(WebSocketHandlerRegistry registry)
-    }
+C -> UI : HTTP POST /publisher/publish
+UI -> PC : publish(Map<String, Object> body)
+PC -> PS : publish(topic, message, count)
+PS -> P : publish(topic, message)
+P -> F : createTopic(topic)
+F --> P : Topic 생성
+P -> MP : send(XMLMessage)
+activate MP
+MP -> Broker : Publish message
+activate Broker
+Broker --> MP : Publish ACK
+deactivate Broker
+deactivate MP
 
-    class PublisherController {
-        - PublisherService publisherService
-        + PublisherController(PublisherService publisherService)
-        + String connect() <<POST>>
-        + String publish(Map<String, Object> body) <<POST>>
-    }
+== 메시지 구독(Message Subscribe) 워크플로우 ==
+C -> UI : HTTP POST /subscriber/connect
+UI -> SC : connect()
+SC -> SS : connect()
+SS -> Sub : connect()
+Sub -> S : connect()
+activate S
+S --> Sub : 연결 완료
+deactivate S
 
-    class SubscriberController {
-        - SubscriberService subscriberService
-        + SubscriberController(SubscriberService subscriberService)
-        + String connect() <<POST>>
-        + String subscribe(Map<String, Object> body) <<POST>>
-    }
+C -> UI : HTTP POST /subscriber/subscribe
+UI -> SC : subscribe(Map<String, Object> body)
+SC -> SS : subscribe(topic)
+SS -> Sub : subscribe(topic)
+Sub -> F : createTopic(topic)
+F --> Sub : Topic 생성
+Sub -> MC : start()
+activate MC
 
-    class PublisherService {
-        - Publisher publisher
-        + PublisherService(Publisher publisher)
-        + String connect()
-        + String publish(String topic, String message, int count)
-    }
+Broker -> MC : Publish message
+MC -> ML : onReceive(BytesXMLMessage msg)
+activate ML
 
-    class SubscriberService {
-        - Subscriber subscriber
-        + SubscriberService(Subscriber subscriber)
-        + String connect()
-        + String subscribe(String topic)
-    }
+ML -> Sub : 전달된 메시지 처리
+Sub -> WSH : broadcast(msg)
+WSH -> UI : WebSocket 메시지 전송
 
-    class Publisher {
-        - JCSMPSession session
-        - XMLMessageProducer producer
-        + Publisher(JCSMPSession session)
-        + void connect()
-        + void publish(String topic, String message)
-    }
-
-    class Subscriber {
-        - JCSMPSession session
-        - MessageWebSocketHandler webSocketHandler
-        + Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
-        + void connect()
-        + void subscribe(String topic)
-        + void onMessageReceived(String message) ' 메시지 수신 처리
-    }
-
-    class MessageWebSocketHandler {
-        - CopyOnWriteArraySet<WebSocketSession> sessions
-        + void afterConnectionEstablished(WebSocketSession session)
-        + void handleTextMessage(WebSocketSession session, TextMessage message)
-        + void afterConnectionClosed(WebSocketSession session, CloseStatus status)
-        + void broadcast(String message) ' 연결된 모든 클라이언트로 메시지 전송
-    }
-
-    class JCSMPSession {
-        + void connect() ' Solace Event Broker와 연결
-        + void publish(String topic, String message) ' 메시지 발행
-        + String consume(String topic) ' 메시지 구독
-    }
-
-}
-
-' HTTP Client (index.html)
-class "index.html" {
-    + HTTP GET / : 메인 페이지 렌더링
-    + HTTP POST /publisher/connect : 게시자 연결
-    + HTTP POST /publisher/publish : 메시지 발행
-    + HTTP POST /subscriber/connect : 구독자 연결
-    + HTTP POST /subscriber/subscribe : 구독 요청
-    + WebSocket 수신 메시지 처리 : 실시간 업데이트
-}
-
-' Relationships
-SolaceConfig --> "1" JCSMPSession : creates
-WebSocketConfig --> "1" MessageWebSocketHandler : uses
-PublisherController --> "1" PublisherService : depends on
-SubscriberController --> "1" SubscriberService : depends on
-Publisher --> "1" JCSMPSession : sends message
-Subscriber --> "1" JCSMPSession : receives message
-Subscriber --> "1" MessageWebSocketHandler : sends message
-MessageWebSocketHandler --> "index.html" : 구독 수신한 메세지 웹페이지 전송
-PublisherService --> "1" Publisher : depends on
-SubscriberService --> "1" Subscriber : depends on
-JCSMPSession --> "Solace Event Broker" : communicates with
-"index.html" --> PublisherController : HTTP POST /publisher/*
-"index.html" --> SubscriberController : HTTP POST /subscriber/*
+deactivate ML
+deactivate MC
 @enduml
