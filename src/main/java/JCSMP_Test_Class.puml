@@ -1,0 +1,149 @@
+@startuml
+
+' Solace Event Broker (외부 시스템)
+class "Solace Event Broker" {
+    + Handle Message Publish
+    + Handle Message Subscribe
+}
+
+' 그룹핑: Spring 기반 애플리케이션 컨텍스트
+package "Spring Application" {
+
+    class SolaceConfig {
+        - String solaceHost
+        - String msgVpn
+        - String solaceUsername
+        - String solacePassword
+        - JCSMPProperties properties
+        + JCSMPSession initJSCMPSession(): JCSMPSession
+        + void setIgnoreDuplicateSubscriptionError()
+    }
+
+    class WebSocketConfig {
+        + WebSocketConfig(MessageWebSocketHandler messageWebSocketHandler)
+        + void registerWebSocketHandlers(WebSocketHandlerRegistry registry)
+    }
+    ' WebSocketConfig 설명
+    note right of WebSocketConfig
+    스프링 웹소켓으로 웹페이지와 연결처리
+    end note
+
+    class MessageWebSocketHandler {
+        + void broadcast(String message) ' 웹페이지 메세지 전송
+    }
+    note bottom of MessageWebSocketHandler
+    메세지 웹페이지 전송(WebSocket -> broadcast)
+    end note
+
+    class PublisherController {
+        - PublisherService publisherService
+        + PublisherController(PublisherService publisherService)
+        + String connect() <<POST>>
+        + String publish(Map<String, Object> body) <<POST>>
+    }
+
+    class SubscriberController {
+        - SubscriberService subscriberService
+        + SubscriberController(SubscriberService subscriberService)
+        + String connect() <<POST>>
+        + String subscribe(Map<String, Object> body) <<POST>>
+    }
+
+    class PublisherService {
+        - Publisher publisher
+        + PublisherService(Publisher publisher)
+        + String connect()
+        + String publish(String topic, String message, int count)
+    }
+
+    class SubscriberService {
+        - Subscriber subscriber
+        + SubscriberService(Subscriber subscriber)
+        + String connect()
+        + String subscribe(String topic)
+    }
+
+    class Publisher {
+        - JCSMPSession session
+        - XMLMessageProducer producer ' Solace 송신용 프로듀서
+        + Publisher(JCSMPSession session)
+        + void connect()
+        + void publish(String topic, String message)
+    }
+
+    class Subscriber {
+        - JCSMPSession session
+        - XMLMessageConsumer consumer ' Solace 수신용 컨슈머
+        - MessageWebSocketHandler webSocketHandler
+        + Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
+        + void connect()
+        + void subscribe(String topic) 'broker로부터 구독
+    }
+
+}
+
+' HTTP Client (index.html)
+class "index.html" {
+    + HTTP GET / : 메인 페이지 렌더링
+    + HTTP POST /publisher/connect : 게시자 연결
+    + HTTP POST /publisher/publish : 메시지 발행
+    + HTTP POST /subscriber/connect : 구독자 연결
+    + HTTP POST /subscriber/subscribe : 구독 요청
+    + WebSocket 수신 메시지 처리 : 실시간 업데이트
+}
+package "Solace JCSMP API" {
+    class JCSMPSession {
+        + void connect()
+        + void disconnect()
+        + XMLMessageProducer getMessageProducer()
+        + XMLMessageConsumer getMessageConsumer()
+    }
+
+    class XMLMessageProducer {
+        + void send(XMLMessage message)
+    }
+
+    class XMLMessageConsumer {
+        + void start()
+        + void stop()
+         XMLMessageListener onReceive(BytesXMLMessage msg)
+    }
+
+    class XMLMessageListener {
+        + void onReceive(BytesXMLMessage msg)
+    }
+
+    class JCSMPFactory {
+        + JCSMPSession createMessage(TextMessage textMesage)
+        + Topic createTopic(String topic)
+    }
+}
+
+' Relationships (연결선에 색상 추가)
+SolaceConfig --> "1" JCSMPSession : 객체Use 세션초기화(application.yml 설정값)
+
+' WebSocketConfig는 MessageWebSocketHandler를 사용
+WebSocketConfig --> "1" MessageWebSocketHandler : uses
+
+' 빨간색 표시: Publisher에 관련된 연결
+PublisherController --> "1" PublisherService : depends on #red
+Publisher --> "1" JCSMPSession : Broker 세션 #red
+Publisher --> "1" JCSMPFactory : Pub Message 생성 #red
+JCSMPSession --> "XMLMessageProducer" : 메세지 게시 Pub #red
+XMLMessageProducer --> "Solace Event Broker" : 메세지 게시 #red
+
+' 파란색 표시: Subscriber에 관련된 연결
+SubscriberController --> "1" SubscriberService : depends on #blue
+Subscriber --> "1" JCSMPSession : Broker 세션 #blue
+Subscriber --> "1" JCSMPFactory : Topic 생성 #blue
+Subscriber --> "1" MessageWebSocketHandler : 구독메세지 웹페이지 broadcast #blue
+JCSMPSession --> "XMLMessageConsumer" : 메세지 구독 Sub #blue
+XMLMessageConsumer --> "XMLMessageListener" : 객체 Use #blue
+XMLMessageListener --> "Solace Event Broker" : 메세지 구독(비동기) #blue
+
+' WebSocket 연결 관계
+MessageWebSocketHandler --> "index.html" : 구독한 메세지 웹페이지로 전송
+"index.html" --> PublisherController : HTTP POST /publisher/* #red
+"index.html" --> SubscriberController : HTTP POST /subscriber/* #blue
+
+@enduml
