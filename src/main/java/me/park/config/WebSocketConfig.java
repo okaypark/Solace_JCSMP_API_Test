@@ -7,6 +7,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 import me.park.util.MessageWebSocketHandler;
 
 
+
 /**
  * WebSocketConfig:
  * WebSocket 통신을 설정 : Events Broker에서 수신한 메세지를 웹페이지로 푸핑처리
