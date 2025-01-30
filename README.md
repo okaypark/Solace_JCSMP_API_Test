@@ -15,8 +15,19 @@
    java -jar build/libs/PublisherService-1.0.0.jar
    ```
    웹페이지 실행 URL : http://localhost:8081
-![JCSMP API TEST 화면]
-   (resources/images/JCSMP_API_TEST_SCREEN.png)
+![JCSMP API TEST 화면](src/main/resources/images/JCSMP_API_TEST_SCREEN.png)
+
+
+4. 클래스 다이아그램
+   ![JCSMP API TEST 화면](src/main/resources/images/classDiagram.svg)  
+
+
+5. 시퀀스 다이아그램
+   "작성 예정"
+
+
+
+
 ## **주요 기능**
 - Solace 메시지 브로커 동작 확인.
 - 특정 메시징 시나리오 구현.
