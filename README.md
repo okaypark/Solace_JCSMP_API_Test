@@ -19,11 +19,11 @@
 
 
 4. 클래스 다이아그램
-   ![JCSMP API TEST 화면](src/main/resources/images/classDiagram.svg)  
+   ![클래스 다이아그램](src/main/resources/images/classDiagram.svg)  
 
 
 5. 시퀀스 다이아그램
-   "작성 예정"
+   ![시퀀스 다이아그램](src/main/resources/images/secquenceDiagram.svg)
 
 
 
