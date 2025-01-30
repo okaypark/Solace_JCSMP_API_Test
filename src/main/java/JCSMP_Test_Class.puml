@@ -1,13 +1,15 @@
+
+```puml
 @startuml
 
 ' Solace Event Broker (외부 시스템)
-class "Solace Event Broker" {
+class "Solace Event Broker" #lightblue{
     + Handle Message Publish
     + Handle Message Subscribe
 }
 
 ' 그룹핑: Spring 기반 애플리케이션 컨텍스트
-package "Spring Application" {
+package "Spring Application" #lightgreen{
 
     class SolaceConfig {
         - String solaceHost
@@ -18,6 +20,7 @@ package "Spring Application" {
         + JCSMPSession initJSCMPSession(): JCSMPSession
         + void setIgnoreDuplicateSubscriptionError()
     }
+
 
     class WebSocketConfig {
         + WebSocketConfig(MessageWebSocketHandler messageWebSocketHandler)
@@ -63,7 +66,7 @@ package "Spring Application" {
         + String subscribe(String topic)
     }
 
-    class Publisher {
+    class Publisher #deepskyblue{
         - JCSMPSession session
         - XMLMessageProducer producer ' Solace 송신용 프로듀서
         + Publisher(JCSMPSession session)
@@ -71,7 +74,7 @@ package "Spring Application" {
         + void publish(String topic, String message)
     }
 
-    class Subscriber {
+    class Subscriber #deepskyblue{
         - JCSMPSession session
         - XMLMessageConsumer consumer ' Solace 수신용 컨슈머
         - MessageWebSocketHandler webSocketHandler
@@ -80,10 +83,11 @@ package "Spring Application" {
         + void subscribe(String topic) 'broker로부터 구독
     }
 
+
 }
 
 ' HTTP Client (index.html)
-class "index.html" {
+class "index.html" #lightpink{
     + HTTP GET / : 메인 페이지 렌더링
     + HTTP POST /publisher/connect : 게시자 연결
     + HTTP POST /publisher/publish : 메시지 발행
@@ -91,7 +95,7 @@ class "index.html" {
     + HTTP POST /subscriber/subscribe : 구독 요청
     + WebSocket 수신 메시지 처리 : 실시간 업데이트
 }
-package "Solace JCSMP API" {
+package "Solace JCSMP API" #lightblue {
     class JCSMPSession {
         + void connect()
         + void disconnect()
@@ -119,31 +123,27 @@ package "Solace JCSMP API" {
     }
 }
 
-' Relationships (연결선에 색상 추가)
+' Relationships
 SolaceConfig --> "1" JCSMPSession : 객체Use 세션초기화(application.yml 설정값)
-
-' WebSocketConfig는 MessageWebSocketHandler를 사용
 WebSocketConfig --> "1" MessageWebSocketHandler : uses
-
-' 빨간색 표시: Publisher에 관련된 연결
-PublisherController --> "1" PublisherService : depends on #red
-Publisher --> "1" JCSMPSession : Broker 세션 #red
-Publisher --> "1" JCSMPFactory : Pub Message 생성 #red
-JCSMPSession --> "XMLMessageProducer" : 메세지 게시 Pub #red
-XMLMessageProducer --> "Solace Event Broker" : 메세지 게시 #red
-
-' 파란색 표시: Subscriber에 관련된 연결
-SubscriberController --> "1" SubscriberService : depends on #blue
-Subscriber --> "1" JCSMPSession : Broker 세션 #blue
-Subscriber --> "1" JCSMPFactory : Topic 생성 #blue
-Subscriber --> "1" MessageWebSocketHandler : 구독메세지 웹페이지 broadcast #blue
-JCSMPSession --> "XMLMessageConsumer" : 메세지 구독 Sub #blue
-XMLMessageConsumer --> "XMLMessageListener" : 객체 Use #blue
-XMLMessageListener --> "Solace Event Broker" : 메세지 구독(비동기) #blue
-
-' WebSocket 연결 관계
+PublisherController --> "1" PublisherService : depends on
+SubscriberController --> "1" SubscriberService : depends on
+Publisher --> "1" JCSMPSession : Broker 세션 #blue
+Subscriber --> "1" JCSMPSession : Broker 세션 #red
+Publisher --> "1" JCSMPFactory : Pub Message 생성
+Subscriber --> "1" JCSMPFactory : Topic 생성
+Subscriber --> "1" MessageWebSocketHandler : 구독메세지 웹페이지 broadcast
 MessageWebSocketHandler --> "index.html" : 구독한 메세지 웹페이지로 전송
-"index.html" --> PublisherController : HTTP POST /publisher/* #red
-"index.html" --> SubscriberController : HTTP POST /subscriber/* #blue
-
+PublisherService --> "1" Publisher : depends on
+SubscriberService --> "1" Subscriber : depends on
+JCSMPSession --> "Solace Event Broker" : connect, disconnect
+JCSMPSession --> "XMLMessageProducer" : 메세지 게시 Pub
+JCSMPSession --> "XMLMessageConsumer" : 메세지 구독 Sub
+XMLMessageConsumer --> "XMLMessageListener" : 객체 Use
+XMLMessageProducer --> "Solace Event Broker" : 메세지 게시
+XMLMessageListener --> "Solace Event Broker" : 메세지 구독(비동기)
+"index.html" --> PublisherController : HTTP POST /publisher/*
+"index.html" --> SubscriberController : HTTP POST /subscriber/*
 @enduml
+```
+
