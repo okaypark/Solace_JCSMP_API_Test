@@ -26,6 +26,12 @@
    ![시퀀스 다이아그램](src/main/resources/images/secquenceDiagram.svg)
 
 
+## **추가작업 예정**
+- Queue topic 처리
+- 게런티드(persistent), direct 구분 기능
+- Reolay 기능 추가
+
+- PLAYGROUND js 분석 및 JCSMP API 프로그램과 연동 구상
 
 
 ## **주요 기능**
