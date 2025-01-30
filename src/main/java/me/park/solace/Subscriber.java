@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 public class Subscriber {
 
     private final JCSMPSession session;
+    private XMLMessageConsumer consumer;
     private final MessageWebSocketHandler webSocketHandler;
 
     public Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler) {
@@ -36,7 +37,7 @@ public class Subscriber {
      */
     public void subscribe(String topic) {
         try {
-            XMLMessageConsumer consumer = session.getMessageConsumer(new XMLMessageListener() {
+            consumer = session.getMessageConsumer(new XMLMessageListener() {
                 @Override
                 public void onReceive(BytesXMLMessage msg) {
                     if (msg instanceof TextMessage) {

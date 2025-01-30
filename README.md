@@ -29,7 +29,7 @@
 ## **추가작업 예정**
 - Queue topic 처리
 - 게런티드(persistent), direct 구분 기능
-- Reolay 기능 추가
+- Replay 기능 추가
 
 - PLAYGROUND js 분석 및 JCSMP API 프로그램과 연동 구상
 
