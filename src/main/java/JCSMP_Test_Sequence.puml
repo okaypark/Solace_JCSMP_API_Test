@@ -1,0 +1,112 @@
+@startuml
+
+' Solace Event Broker (외부 시스템)
+class "Solace Event Broker" {
+    + Handle Message Publish
+    + Handle Message Subscribe
+}
+
+' 그룹핑: Spring 기반 애플리케이션 컨텍스트
+package "Spring Application" {
+
+    class SolaceConfig {
+        - String solaceHost
+        - String msgVpn
+        - String solaceUsername
+        - String solacePassword
+        - JCSMPProperties properties
+        + JCSMPSession initJSCMPSession(): JCSMPSession
+        + void setIgnoreDuplicateSubscriptionError()
+    }
+
+    class WebSocketConfig {
+        + WebSocketConfig(MessageWebSocketHandler messageWebSocketHandler)
+        + void registerWebSocketHandlers(WebSocketHandlerRegistry registry)
+    }
+
+    class PublisherController {
+        - PublisherService publisherService
+        + PublisherController(PublisherService publisherService)
+        + String connect() <<POST>>
+        + String publish(Map<String, Object> body) <<POST>>
+    }
+
+    class SubscriberController {
+        - SubscriberService subscriberService
+        + SubscriberController(SubscriberService subscriberService)
+        + String connect() <<POST>>
+        + String subscribe(Map<String, Object> body) <<POST>>
+    }
+
+    class PublisherService {
+        - Publisher publisher
+        + PublisherService(Publisher publisher)
+        + String connect()
+        + String publish(String topic, String message, int count)
+    }
+
+    class SubscriberService {
+        - Subscriber subscriber
+        + SubscriberService(Subscriber subscriber)
+        + String connect()
+        + String subscribe(String topic)
+    }
+
+    class Publisher {
+        - JCSMPSession session
+        - XMLMessageProducer producer
+        + Publisher(JCSMPSession session)
+        + void connect()
+        + void publish(String topic, String message)
+    }
+
+    class Subscriber {
+        - JCSMPSession session
+        - MessageWebSocketHandler webSocketHandler
+        + Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
+        + void connect()
+        + void subscribe(String topic)
+        + void onMessageReceived(String message) ' 메시지 수신 처리
+    }
+
+    class MessageWebSocketHandler {
+        - CopyOnWriteArraySet<WebSocketSession> sessions
+        + void afterConnectionEstablished(WebSocketSession session)
+        + void handleTextMessage(WebSocketSession session, TextMessage message)
+        + void afterConnectionClosed(WebSocketSession session, CloseStatus status)
+        + void broadcast(String message) ' 연결된 모든 클라이언트로 메시지 전송
+    }
+
+    class JCSMPSession {
+        + void connect() ' Solace Event Broker와 연결
+        + void publish(String topic, String message) ' 메시지 발행
+        + String consume(String topic) ' 메시지 구독
+    }
+
+}
+
+' HTTP Client (index.html)
+class "index.html" {
+    + HTTP GET / : 메인 페이지 렌더링
+    + HTTP POST /publisher/connect : 게시자 연결
+    + HTTP POST /publisher/publish : 메시지 발행
+    + HTTP POST /subscriber/connect : 구독자 연결
+    + HTTP POST /subscriber/subscribe : 구독 요청
+    + WebSocket 수신 메시지 처리 : 실시간 업데이트
+}
+
+' Relationships
+SolaceConfig --> "1" JCSMPSession : creates
+WebSocketConfig --> "1" MessageWebSocketHandler : uses
+PublisherController --> "1" PublisherService : depends on
+SubscriberController --> "1" SubscriberService : depends on
+Publisher --> "1" JCSMPSession : sends message
+Subscriber --> "1" JCSMPSession : receives message
+Subscriber --> "1" MessageWebSocketHandler : sends message
+MessageWebSocketHandler --> "index.html" : 구독 수신한 메세지 웹페이지 전송
+PublisherService --> "1" Publisher : depends on
+SubscriberService --> "1" Subscriber : depends on
+JCSMPSession --> "Solace Event Broker" : communicates with
+"index.html" --> PublisherController : HTTP POST /publisher/*
+"index.html" --> SubscriberController : HTTP POST /subscriber/*
+@enduml
