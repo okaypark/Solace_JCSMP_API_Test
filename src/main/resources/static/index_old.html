@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spring Boot Pub/Sub</title>
+  <style>
+    body {
+        display: flex;
+        justify-content: space-between;
+        padding: 20px;
+        margin: 0;
+        font-family: Arial, sans-serif;
+        font-size: 110%;
+    }
+    .half {
+        width: 45%;
+        padding: 20px 20px 30px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 60%;
+        position: relative;
+    }
+    .pub {
+        background-color: #f9f9f9;
+    }
+    .sub {
+        background-color: #eafaf1;
+    }
+    h2 {
+        margin-top: 0;
+        position: absolute;
+        font-size: 140%;
+        font-weight: bold;
+        top: 10px;
+        left: 20px;
+    }
+    label {
+        font-weight: bold;
+        font-size: 120%;
+    }
+    label.red {
+        color: red;
+        text-align: center;
+    }
+    label.blue {
+        color: blue;
+        text-align: center;
+    }
+
+    /* div 그룹을 시각적으로 구분하는 테두리 스타일 */
+    .div-group {
+        border: 1px solid #ccc; /* 테두리: 1px 두께, 회색, 실선 */
+        border-radius: 5px;     /* 둥근 테두리 효과 */
+        padding: 10px;          /* 내부 여백 */
+        margin-bottom: 20px;    /* 그룹 간 간격 */
+        background-color: #fefefe; /* 선택적으로 배경색 추가 */
+    }
+     .topic-table {
+        display: grid; /* Grid 레이아웃 */
+        grid-template-rows: repeat(2, auto); /* 2 행: 라벨 행과 입력 필드 행 */
+        gap: 10px; /* 행 사이 간격 */
+    }
+
+    .topic-row {
+        display: grid; /* 각 행도 Grid 레이아웃 */
+        grid-template-columns: repeat(5, 1fr); /* 라벨과 입력 필드를 5개의 열로 균등 배치 */
+        gap: 10px; /* 열 사이 간격 */
+        align-items: center; /* 수직 중앙 정렬 */
+        text-align: center; /* 텍스트 중앙 정렬 */
+    }
+
+    .topic-row label span {
+        font-weight: bold; /* 라벨 텍스트 굵게 */
+    }
+
+    .topic-row input {
+        padding: 6px;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        height: 30px; /* 동일한 높이 설정 */
+        text-align: center; /* 텍스트 중앙 정렬 */
+        box-sizing: border-box; /* 박스 크기 고정 */
+    }
+
+    #noun, #property1, #property2, #property3 {
+        color: red;
+    }
+
+    #verb {
+        color: blue;
+    }
+
+    .clickable-text {
+        color: blue;
+        cursor: pointer;
+        text-decoration: underline;
+        margin-top: 10px;
+        display: inline-block;
+    }
+
+    /* Final Topic 섹션 조정 */
+    .clickable-text {
+        color: #007bff;
+        font-weight: bold;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    .clickable-text:hover {
+        text-decoration: underline;
+    }
+    #final-topic-box {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        padding: 5px 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        color: black;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-top: 10px; /* 위쪽 간격 축소 */
+    }
+    #final-topic-box span.red {
+        color: red;
+    }
+    #final-topic-box span.blue {
+        color: blue;
+    }
+    #final-topic-box span {
+       display: inline;
+    }
+    textarea#pub-content {
+        margin-top: 5px; /* Final Topic과 붙임 */
+    }
+
+    button {
+        background-color: #4CAF50;
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        font-size: 12px;
+        margin: 4px 0;
+        cursor: pointer;
+        border-radius: 20px;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+    select, textarea, input {
+        width: 100%;
+        border-radius: 5px;
+        border: 1px solid #ddd;
+        padding: 6px;
+        font-size: 12px;
+        box-sizing: border-box;
+    }
+    #pub-content {
+        resize: vertical;
+        height: 300px;
+    }
+
+    .status-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 25px;
+    }
+  </style>
+</head>
+<body>
+<!-- Publisher Section -->
+<div class="half pub">
+  <h2>Publisher</h2>
+
+  <div class="status-container">
+    <p>
+      <span class="status-text">Status: </span>
+      <span id="connect-pub-status">Not Connected</span>
+    </p>
+    <button onclick="connectPublisher()">Connect</button>
+  </div>
+
+  <h3>Publish</h3>
+
+  <label for="pub-topic-builder">Topic</label>
+  <div class="div-group">
+    <p><strong>Topic Structure</strong></p>
+    <div class="topic-table">
+      <!-- 라벨 행 -->
+      <div class="topic-row">
+        <label>
+          <span class="red">Noun</span>
+        </label>
+        <label>
+          <span class="blue">Verb</span>
+        </label>
+        <label>
+          <span class="red">Property1</span>
+        </label>
+        <label>
+          <span class="red">Property2</span>
+        </label>
+        <label>
+          <span class="red">Property3</span>
+        </label>
+      </div>
+      <!-- 입력 필드 행 -->
+      <div class="topic-row">
+        <input type="text" id="noun" placeholder="flight" value="flight">
+        <input type="text" id="verb" placeholder="boarding" value="boarding">
+        <input type="text" id="property1" placeholder="fl1234" value="fl1234">
+        <input type="text" id="property2" placeholder="yow" value="yow">
+        <input type="text" id="property3" placeholder="ewr" value="ewr">
+      </div>
+    </div>
+
+    <span class="clickable-text" onclick="generateTopic()">Generate Topic</span>
+    <span class="clickable-text" onclick="clearTopic()">Clear All</span>
+  </div>
+  <!-- Final Topic -->
+  <div class="div-group">
+    <p><strong>Final Topic:</strong></p>
+    <div id="final-topic-box">
+      <span class="red" id="result-noun">flight</span>/
+      <span class="blue" id="result-verb">boarding</span>/
+      <span class="red" id="result-property1">fl1234</span>/
+      <span class="red" id="result-property2">yow</span>/
+      <span class="red" id="result-property3">ewr</span>
+    </div>
+    <!-- Copy to Clipboard Button -->
+    <span class="clickable-text" onclick="copyFinalTopic()">copy clipboard</span>
+    <p></p>
+  </div>
+
+  <div>
+    <label for="pub-content">Message Content</label>
+    <textarea id="pub-content">
+    {
+        "airline": "ExampleAirline",
+        "region": "Ontario",
+        "requestId": 44334,
+        "items": []
+    }
+    </textarea>
+  </div>
+  <div class="div-group">
+    <label for="pub-msg-count">Message Count</label>
+    <input type="number" id="pub-msg-count" placeholder="Enter message count" value="1" min="1">
+  </div>
+
+  <button onclick="publish()">Publish</button>
+  <p id="pub-status">Waiting to publish...</p>
+</div>
+
+<!-- Subscriber Section -->
+<div class="half sub">
+  <h2>Subscriber</h2>
+
+  <div class="status-container">
+    <p>
+      <span class="status-text">Status: </span>
+      <span id="connect-sub-status">Not Connected</span>
+    </p>
+    <button onclick="connectSubscriber()">Connect</button>
+  </div>
+
+  <h3>Subscribe</h3>
+  <input id="sub-topic" type="text" placeholder="Enter Topic to Subscribe">
+  <button onclick="subscribe()">Subscribe</button>
+
+  <p id="subscribe-status">Not subscribed yet...</p>
+
+  <h3>Received Messages</h3>
+  <ul id="message-list"></ul>
+</div>
+
+<script>
+  const API_URL = "/api";
+  let socket;
+
+  async function connectPublisher() {
+      try {
+          const response = await fetch(`${API_URL}/publisher/connect`, { method: "POST" });
+          const result = await response.text();
+
+          document.getElementById("connect-pub-status").textContent = result;
+
+          if (response.ok) {
+              isPublisherConnected = true; // 연결 성공
+          } else {
+              alert("Failed to connect publisher. Please try again.");
+          }
+      } catch (error) {
+          alert("Error while connecting to publisher: " + error.message);
+      }
+  }
+
+  async function connectSubscriber() {
+      try {
+          const response = await fetch(`${API_URL}/subscriber/connect`, { method: "POST" });
+          const result = await response.text();
+
+          document.getElementById("connect-sub-status").textContent = result;
+
+          if (response.ok) {
+              isSubscriberConnected = true; // 연결 성공
+          } else {
+              alert("Failed to connect subscriber. Please try again.");
+          }
+      } catch (error) {
+          alert("Error while connecting to subscriber: " + error.message);
+      }
+  }
+
+  async function publish() {
+      // 연결 상태 확인
+      if (!isPublisherConnected) {
+          alert("Please connect to Publisher before publishing a message.");
+          return;
+      }
+
+      const topic = document.getElementById("result-noun").textContent + "/" +
+                    document.getElementById("result-verb").textContent + "/" +
+                    document.getElementById("result-property1").textContent + "/" +
+                    document.getElementById("result-property2").textContent + "/" +
+                    document.getElementById("result-property3").textContent;
+
+      const message = document.getElementById("pub-content").value;
+
+      // Get the Message Count entered by the user
+      const msgCountInput = document.getElementById("pub-msg-count").value;
+      const count = parseInt(msgCountInput, 10);
+
+      // Validate the count before proceeding
+      if (isNaN(count) || count < 1) {
+          alert("Please enter a valid number for Message Count (minimum 1).");
+          return;
+      }
+
+      try {
+          // Send the POST request to the server
+          const response = await fetch(`${API_URL}/publisher/publish`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ topic, message, count })
+          });
+
+          // Parse the server response
+          const result = await response.text();
+
+          // Display the sent message and publishing result
+          const statusElement = document.getElementById("pub-status");
+          if (response.ok) {
+              statusElement.innerHTML = `
+                  <b>Sent Message:</b> ${message}<br>
+                  <b>Count:</b> ${count}
+              `;
+          } else {
+              statusElement.innerHTML = `
+                  <b>Error:</b> Failed to publish message.<br>
+                  <b>Details:</b> ${result}
+              `;
+          }
+      } catch (error) {
+          // Handle unexpected errors
+          document.getElementById("pub-status").innerHTML = `
+              <b>Error:</b> Unable to connect to the server.<br>
+              <b>Details:</b> ${error.message}
+          `;
+      }
+  }
+
+  async function subscribe() {
+  // Subscriber 연결 상태 확인
+  if (!isSubscriberConnected) {
+      alert("Please connect to Subscriber before subscribing to a topic.");
+      return;
+  }
+
+  const topic = document.getElementById("sub-topic").value;
+  if (!topic) {
+      alert("Please enter a topic before subscribing.");
+      return;
+  }
+
+  try {
+      const response = await fetch(`${API_URL}/subscriber/subscribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic })
+      });
+
+      const result = await response.text();
+      document.getElementById("subscribe-status").textContent = result;
+
+      if (response.ok) {
+          // WebSocket 연결 (구독 요청 성공 후)
+          connectWebSocket();
+      }
+  } catch (error) {
+      alert("Error while subscribing: " + error.message);
+  }
+}
+  function connectWebSocket() {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+          console.log("WebSocket is already connected.");
+          return;
+      }
+
+      // WebSocket URL 설정 (여기에 실제 WebSocket 서버 URL로 변경)
+      socket = new WebSocket("ws://localhost:8081/ws/messages");
+
+      socket.onopen = () => {
+          console.log("WebSocket connected!");
+      };
+
+      socket.onmessage = (event) => {
+          const message = event.data;
+          displayReceivedMessage(message); // 수신된 메시지 표시
+      };
+
+      socket.onerror = (error) => {
+          console.error("WebSocket error:", error);
+      };
+
+      socket.onclose = () => {
+          console.log("WebSocket connection closed!");
+      };
+  }
+
+  function generateTopic() {
+      document.getElementById("result-noun").textContent = document.getElementById("noun").value.trim();
+      document.getElementById("result-verb").textContent = document.getElementById("verb").value.trim();
+      document.getElementById("result-property1").textContent = document.getElementById("property1").value.trim();
+      document.getElementById("result-property2").textContent = document.getElementById("property2").value.trim();
+      document.getElementById("result-property3").textContent = document.getElementById("property3").value.trim();
+  }
+
+  function clearTopic() {
+      document.getElementById("noun").value = "";
+      document.getElementById("verb").value = "";
+      document.getElementById("property1").value = "";
+      document.getElementById("property2").value = "";
+      document.getElementById("property3").value = "";
+      generateTopic();
+  }
+
+  function displayReceivedMessage(message) {
+      const messageList = document.getElementById("message-list");
+
+      // 새로운 메시지를 리스트에 추가
+      const messageItem = document.createElement("li");
+      messageItem.textContent = message;
+      messageList.appendChild(messageItem);
+  }
+  function copyFinalTopic() {
+      // Final Topic 문자열 생성
+      const finalTopic = document.getElementById("result-noun").textContent + "/" +
+                         document.getElementById("result-verb").textContent + "/" +
+                         document.getElementById("result-property1").textContent + "/" +
+                         document.getElementById("result-property2").textContent + "/" +
+                         document.getElementById("result-property3").textContent;
+
+      // Clipboard API로 복사
+      navigator.clipboard.writeText(finalTopic).then(() => {
+          alert("Final Topic copied to clipboard!");
+      }).catch(err => {
+          console.error("Failed to copy text:", err);
+      });
+  }
+</script>
+</body>
+</html>
