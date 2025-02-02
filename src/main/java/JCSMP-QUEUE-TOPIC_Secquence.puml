@@ -1,0 +1,77 @@
+@startuml
+autonumber
+
+actor Client as C
+participant "index.html" as UI
+participant QueueProduceController as PQC
+participant QueueProduceService as PQS
+participant QueueProducer as QP
+participant QueueConsumeController as CQC
+participant QueueConsumeService as CQS
+participant QueueConsumer as QC
+participant JCSMPSession as S
+participant XMLMessageProducer as MP
+participant XMLMessageConsumer as MC
+participant MessageWebSocketHandler as WSH
+participant "Solace Event Broker" as Broker #aqua
+
+== Queue 메시지 생산(Produce Message to Queue) 워크플로우 ==
+C -> UI : HTTP POST /queue/connect/producer
+UI -> PQC : connect()
+PQC -> PQS : connect()
+PQS -> QP : connect()
+QP -> S : connect()
+activate S
+S --> QP : 연결 완료
+deactivate S
+
+C -> UI : HTTP POST /queue/produceQueue
+UI -> PQC : produceQueue(ProduceQueueRequest body)
+PQC -> PQS : produceQueue(queueName, deliveryMode, message, count)
+PQS -> QP : produceQueue(queueName, deliveryMode, message, count)
+QP -> S : 세션 활성화
+QP -> MP : send(XMLMessage)
+activate MP
+MP -> Broker : 메시지 발행
+activate Broker
+Broker --> MP : Publish ACK
+deactivate Broker
+deactivate MP
+
+== Topic-to-Queue 매핑 생산 ==
+C -> UI : HTTP POST /queue/produceTopicToQueue
+UI -> PQC : produceTopicToQueue(ProduceTopicToQueueRequest body)
+PQC -> PQS : produceTopicToQueueMapping(topic, queueName, deliveryMode, message, count)
+PQS -> QP : produceTopicToQueueMapping(topic, queueName, deliveryMode, message, count)
+QP -> S : 세션 활성화
+QP -> MP : send(XMLMessage)
+activate MP
+MP -> Broker : 메시지 발행
+activate Broker
+Broker --> MP : Publish ACK
+deactivate Broker
+deactivate MP
+
+== Queue 메시지 소비(Consume Message from Queue) 워크플로우 ==
+C -> UI : HTTP POST /queue/connect/consumer
+UI -> CQC : connect()
+CQC -> CQS : connectQueue()
+CQS -> QC : connect()
+QC -> S : 세션 활성화
+activate S
+S --> QC : 연결 완료
+deactivate S
+
+C -> UI : HTTP POST /queue/consumeQueue
+UI -> CQC : consumeQueue(ConsumeQueueRequest body)
+CQC -> CQS : consumeQueue(body)
+CQS -> QC : consumeQueue(queueName)
+QC -> MC : start()
+activate MC
+
+Broker -> MC : 메시지 발행
+MC -> QC : 메시지 소비 완료
+QC -> WSH : broadcast(message)
+WSH -> UI : WebSocket 메시지 전송
+deactivate MC
+@enduml

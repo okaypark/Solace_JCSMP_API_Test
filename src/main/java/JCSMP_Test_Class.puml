@@ -1,5 +1,3 @@
-
-```puml
 @startuml
 
 ' Solace Event Broker (외부 시스템)
@@ -8,9 +6,10 @@ class "Solace Event Broker" #lightblue{
     + Handle Message Subscribe
 }
 
-' 그룹핑: Spring 기반 애플리케이션 컨텍스트
+' Spring Application 컨텍스트
 package "Spring Application" #lightgreen{
 
+    ' 기존 Solace 설정 클래스
     class SolaceConfig {
         - String solaceHost
         - String msgVpn
@@ -21,129 +20,222 @@ package "Spring Application" #lightgreen{
         + void setIgnoreDuplicateSubscriptionError()
     }
 
-
     class WebSocketConfig {
         + WebSocketConfig(MessageWebSocketHandler messageWebSocketHandler)
         + void registerWebSocketHandlers(WebSocketHandlerRegistry registry)
     }
-    ' WebSocketConfig 설명
-    note right of WebSocketConfig
-    스프링 웹소켓으로 웹페이지와 연결처리
-    end note
 
     class MessageWebSocketHandler {
-        + void broadcast(String message) ' 웹페이지 메세지 전송
-    }
-    note bottom of MessageWebSocketHandler
-    메세지 웹페이지 전송(WebSocket -> broadcast)
-    end note
-
-    class PublisherController {
-        - PublisherService publisherService
-        + PublisherController(PublisherService publisherService)
-        + String connect() <<POST>>
-        + String publish(Map<String, Object> body) <<POST>>
+        + void broadcast(String message)
     }
 
-    class SubscriberController {
-        - SubscriberService subscriberService
-        + SubscriberController(SubscriberService subscriberService)
-        + String connect() <<POST>>
-        + String subscribe(Map<String, Object> body) <<POST>>
+    ' **새롭게 추가된 Controllers**
+    package "Controllers" #lightyellow {
+        class PublisherController {
+            - PublisherService publisherService
+            + PublisherController(PublisherService publisherService)
+            + String connect() <<POST>>
+            + String publish(Map<String, Object> body) <<POST>>
+        }
+
+        class SubscriberController {
+            - SubscriberService subscriberService
+            + SubscriberController(SubscriberService subscriberService)
+            + String connect() <<POST>>
+            + String subscribe(Map<String, Object> body) <<POST>>
+        }
+        class QueueConsumeController {
+            - QueueConsumeService queueConsumeService
+            + QueueConsumeController(QueueConsumeService queueConsumeService)
+            + String connect() <<POST>>
+            + void consumeQueue(ConsumeQueueRequest body) <<POST>>
+        }
+
+        class QueueProduceController {
+            - QueueProduceService queueProduceService
+            + QueueProduceController(QueueProduceService queueProduceService)
+            + String connect() <<POST>>
+            + String produceQueue(ProduceQueueRequest body) <<POST>>
+            + String produceTopicToQueue(ProduceTopicToQueueRequest body) <<POST>>
+        }
     }
 
-    class PublisherService {
-        - Publisher publisher
-        + PublisherService(Publisher publisher)
-        + String connect()
-        + String publish(String topic, String message, int count)
+    ' **새로운 DTO들**
+    package "DTOs" #cyan {
+        class ConsumeQueueRequest {
+            - String queueName
+            - String message
+        }
+
+        class ProduceQueueRequest {
+            - String queueName
+            - String message
+            - DeliveryMode deliveryMode
+            - int count
+        }
+
+        class ProduceTopicToQueueRequest {
+            - String topicName
+            - String queueName
+            - String messageContent
+            - DeliveryMode deliveryMode
+            - int count
+        }
+
+        class PublishRequest {
+            - String topic
+            - String message
+            - DeliveryMode deliveryMode
+            - int count
+        }
     }
 
-    class SubscriberService {
-        - Subscriber subscriber
-        + SubscriberService(Subscriber subscriber)
-        + String connect()
-        + String subscribe(String topic)
+    ' **새롭게 추가된 Services**
+    package "Services" #lightpink {
+        class PublisherService {
+            - Publisher publisher
+            + PublisherService(Publisher publisher)
+            + String connect()
+            + String publish(String topic, String message, int count)
+        }
+
+        class SubscriberService {
+            - Subscriber subscriber
+            + SubscriberService(Subscriber subscriber)
+            + String connect()
+            + String subscribe(String topic)
+        }
+        class QueueConsumeService {
+            - QueueConsumer queueConsumer
+            + QueueConsumeService(QueueConsumer queueConsumer)
+            + void connectQueue()
+            + void consumeQueue(ConsumeQueueRequest consumeReq)
+        }
+
+        class QueueProduceService {
+            - QueueProducer queueProducer
+            + QueueProduceService(QueueProducer queueProducer)
+            + void connect()
+            + void produceQueue(String queueName, DeliveryMode deliveryMode, String message, int count)
+            + void produceTopicToQueueMapping(String topic, String queueName, DeliveryMode deliveryMode, String message, int count)
+        }
+    }
+    ' **새롭게 추가된 Solace 연동**
+    package "Solace JCSMP QUEUE-Topic" #orchid {
+        class QueueConsumer {
+            - JCSMPSession session
+            - FlowReceiver receiver
+            - MessageWebSocketHandler webSocketHandler
+            + QueueConsumer(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
+            + void connect()
+            + void consumeQueue(String queueName)
+            + synchronized void disconnect()
+        }
+
+        class QueueProducer {
+            - JCSMPSession session
+            - XMLMessageProducer producer
+            + QueueProducer(JCSMPSession session)
+            + void connect()
+            + void produceQueue(String queueName, DeliveryMode deliveryMode, String message, int count)
+            + void produceTopicToQueueMapping(String topicName, String queueName, DeliveryMode deliveryMode, String message, int count)
+        }
     }
 
-    class Publisher #deepskyblue{
-        - JCSMPSession session
-        - XMLMessageProducer producer ' Solace 송신용 프로듀서
-        + Publisher(JCSMPSession session)
-        + void connect()
-        + void publish(String topic, String message)
+    ' **기존 Solace 연동**
+    package "Solace PUBSUB-TOPIC" #orchid {
+        class Publisher #deepskyblue {
+                - JCSMPSession session
+                - XMLMessageProducer producer
+                + Publisher(JCSMPSession session)
+                + void connect()
+                + void publish(String topic, String message)
+            }
+
+            class Subscriber #deepskyblue {
+                - JCSMPSession session
+                - XMLMessageConsumer consumer
+                - MessageWebSocketHandler webSocketHandler
+                + Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
+                + void connect()
+                + void subscribe(String topic)
+            }
+        }
     }
 
-    class Subscriber #deepskyblue{
-        - JCSMPSession session
-        - XMLMessageConsumer consumer ' Solace 수신용 컨슈머
-        - MessageWebSocketHandler webSocketHandler
-        + Subscriber(JCSMPSession session, MessageWebSocketHandler webSocketHandler)
-        + void connect()
-        + void subscribe(String topic) 'broker로부터 구독
+    package "Solace JCSMP API" #lightblue {
+        class JCSMPSession {
+            + void connect()
+            + void disconnect()
+            + XMLMessageProducer getMessageProducer()
+            + XMLMessageConsumer getMessageConsumer()
+        }
+
+        class XMLMessageProducer {
+            + void send(XMLMessage message)
+        }
+
+        class XMLMessageConsumer {
+            + void start()
+            + void stop()
+            + XMLMessageListener onReceive(BytesXMLMessage msg)
+        }
+
+        class XMLMessageListener {
+            + void onReceive(BytesXMLMessage msg)
+        }
+
+        class JCSMPFactory {
+            + JCSMPSession createSession(JCSMPProperties properties)
+            + Queue createQueue(String queueName)
+            + Topic createTopic(String topicName)
+            + TextMessage createMessage(Class<? extends TextMessage> clazz)
+        }
     }
 
-
-}
-
-' HTTP Client (index.html)
-class "index.html" #lightpink{
-    + HTTP GET / : 메인 페이지 렌더링
-    + HTTP POST /publisher/connect : 게시자 연결
-    + HTTP POST /publisher/publish : 메시지 발행
-    + HTTP POST /subscriber/connect : 구독자 연결
-    + HTTP POST /subscriber/subscribe : 구독 요청
-    + WebSocket 수신 메시지 처리 : 실시간 업데이트
-}
-package "Solace JCSMP API" #lightblue {
-    class JCSMPSession {
-        + void connect()
-        + void disconnect()
-        + XMLMessageProducer getMessageProducer()
-        + XMLMessageConsumer getMessageConsumer()
+    ' HTTP Client (index.html)
+    class "index.html" #lightcoral {
+        + HTTP GET / : 메인 페이지 렌더링
+        + HTTP POST /queue/connect/producer : Queue 프로듀서 연결
+        + HTTP POST /queue/produceQueue : Queue 메시지 생산
+        + HTTP POST /queue/produceTopicToQueue : 토픽-Queue 매핑 메시지 생산
+        + HTTP POST /queue/connect/consumer : Queue 컨슈머 연결
+        + HTTP POST /queue/consumeQueue : Queue 메시지 소비
+        + WebSocket 수신 메시지 처리 : 실시간 업데이트
     }
 
-    class XMLMessageProducer {
-        + void send(XMLMessage message)
-    }
+    ' 관계 정의
+    SolaceConfig --> "1" JCSMPSession : 세션 초기화
+    WebSocketConfig --> "1" MessageWebSocketHandler : 우선순위 설정
 
-    class XMLMessageConsumer {
-        + void start()
-        + void stop()
-         XMLMessageListener onReceive(BytesXMLMessage msg)
-    }
+    QueueConsumeController --> "1" QueueConsumeService : depends on
+    QueueProduceController --> "1" QueueProduceService : depends on
 
-    class XMLMessageListener {
-        + void onReceive(BytesXMLMessage msg)
-    }
+    QueueConsumeService --> "1" QueueConsumer : interacts with
+    QueueProduceService --> "1" QueueProducer : interacts with
+    QueueConsumer --> "1" JCSMPSession : 소비를 통한 연결
+    QueueProducer --> "1" JCSMPSession : 생산을 통한 연결
 
-    class JCSMPFactory {
-        + JCSMPSession createMessage(TextMessage textMesage)
-        + Topic createTopic(String topic)
-    }
-}
+    MessageWebSocketHandler --> "index.html" : 웹소켓으로 메시지 전송
+    QueueConsumer --> "MessageWebSocketHandler" : 구독된 메시지 전달
 
-' Relationships
-SolaceConfig --> "1" JCSMPSession : 객체Use 세션초기화(application.yml 설정값)
-WebSocketConfig --> "1" MessageWebSocketHandler : uses
-PublisherController --> "1" PublisherService : depends on
-SubscriberController --> "1" SubscriberService : depends on
-Publisher --> "1" JCSMPSession : Broker 세션 #blue
-Subscriber --> "1" JCSMPSession : Broker 세션 #red
-Publisher --> "1" JCSMPFactory : Pub Message 생성
-Subscriber --> "1" JCSMPFactory : Topic 생성
-Subscriber --> "1" MessageWebSocketHandler : 구독메세지 웹페이지 broadcast
-MessageWebSocketHandler --> "index.html" : 구독한 메세지 웹페이지로 전송
-PublisherService --> "1" Publisher : depends on
-SubscriberService --> "1" Subscriber : depends on
-JCSMPSession --> "Solace Event Broker" : connect, disconnect
-JCSMPSession --> "XMLMessageProducer" : 메세지 게시 Pub
-JCSMPSession --> "XMLMessageConsumer" : 메세지 구독 Sub
-XMLMessageConsumer --> "XMLMessageListener" : 객체 Use
-XMLMessageProducer --> "Solace Event Broker" : 메세지 게시
-XMLMessageListener --> "Solace Event Broker" : 메세지 구독(비동기)
-"index.html" --> PublisherController : HTTP POST /publisher/*
-"index.html" --> SubscriberController : HTTP POST /subscriber/*
-@enduml
-```
+    PublisherService --> "1" Publisher : depends on
+    SubscriberService --> "1" Subscriber : depends on
 
+    Publisher --> "1" JCSMPSession : Broker 연결
+    Subscriber --> "1" JCSMPSession : Broker 연결
+    Publisher --> "1" JCSMPFactory : 메시지 생성
+    Subscriber --> "1" JCSMPFactory : Topic 구독 생성
+    Subscriber --> "1" MessageWebSocketHandler : 메시지 전달
+
+    "index.html" --> QueueProduceController : HTTP POST /queue/produce*
+    "index.html" --> QueueConsumeController : HTTP POST /queue/consume*
+
+    JCSMPSession --> "Solace Event Broker" : connect, disconnect
+    JCSMPSession --> "XMLMessageProducer" : 메시지 게시
+    JCSMPSession --> "XMLMessageConsumer" : 메시지 구독
+    XMLMessageConsumer --> "XMLMessageListener" : consume의 핵심
+    XMLMessageProducer --> "Solace Event Broker" : 메시지 게시
+    XMLMessageListener --> "Solace Event Broker" : 메시지 수신 이벤트 처리
+
+    @enduml

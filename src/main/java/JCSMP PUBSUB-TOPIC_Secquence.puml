@@ -1,0 +1,74 @@
+@startuml
+autonumber
+
+actor Client as C
+participant "index.html" as UI
+participant PublisherController as PC
+participant PublisherService as PS
+participant Publisher as P
+participant JCSMPFactory as F
+participant JCSMPSession as S
+participant XMLMessageProducer as MP
+participant "Solace Event Broker" as Broker #aqua
+
+participant SubscriberController as SC
+participant SubscriberService as SS
+participant Subscriber as Sub
+participant MessageWebSocketHandler as WSH
+participant XMLMessageConsumer as MC
+participant XMLMessageListener as ML
+
+== 메시지 발행(Message Publish) 워크플로우 ==
+C -> UI : HTTP POST /publisher/connect
+UI -> PC : connect()
+PC -> PS : connect()
+PS -> P : connect()
+P -> S : connect()
+activate S
+S --> P : 연결 완료
+deactivate S
+
+C -> UI : HTTP POST /publisher/publish
+UI -> PC : publish(Map<String, Object> body)
+PC -> PS : publish(topic, message, count)
+PS -> P : publish(topic, message)
+P -> F : createTopic(topic)
+F --> P : Topic 생성
+P -> MP : send(XMLMessage)
+activate MP
+MP -> Broker : Publish message
+activate Broker
+Broker --> MP : Publish ACK
+deactivate Broker
+deactivate MP
+
+== 메시지 구독(Message Subscribe) 워크플로우 ==
+C -> UI : HTTP POST /subscriber/connect
+UI -> SC : connect()
+SC -> SS : connect()
+SS -> Sub : connect()
+Sub -> S : connect()
+activate S
+S --> Sub : 연결 완료
+deactivate S
+
+C -> UI : HTTP POST /subscriber/subscribe
+UI -> SC : subscribe(Map<String, Object> body)
+SC -> SS : subscribe(topic)
+SS -> Sub : subscribe(topic)
+Sub -> F : createTopic(topic)
+F --> Sub : Topic 생성
+Sub -> MC : start()
+activate MC
+
+Broker -> MC : Publish message
+MC -> ML : onReceive(BytesXMLMessage msg)
+activate ML
+
+ML -> Sub : 전달된 메시지 처리
+Sub -> WSH : broadcast(msg)
+WSH -> UI : WebSocket 메시지 전송
+
+deactivate ML
+deactivate MC
+@enduml
