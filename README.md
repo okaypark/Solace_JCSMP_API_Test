@@ -27,7 +27,7 @@
    PUBSUB-TOPIC
    ![시퀀스 다이아그램](src/main/resources/images/secquenceDiagram.svg)
    QUEUE-TOPIC
-   ![시퀀스 다이아그램2](src/main/resources/images/secquenceDiagram2.svg)
+   ![시퀀스 다이아그램](src/main/resources/images/secquenceDiagram2.svg)
 
 
 ## **추가작업 예정**
