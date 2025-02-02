@@ -73,6 +73,14 @@
             top: 10px;
             left: 20px;
         }
+        h3 {
+            margin-top: 0;
+            position: absolute;
+            font-size: 150%;
+            font-weight: bold;
+            top: 10px;
+            left: 20px;
+        }
         label {
             font-weight: bold;
             font-size: 120%;
@@ -187,6 +195,7 @@
 <!-- Topic 탭 내용 -->
 <div id="topic" class="tab-content active">
     <div style="display:flex; justify-content: space-between; gap: 2%;">
+
         <!-- Publisher Section -->
         <div class="half pub">
             <h2>Publisher</h2>
@@ -199,10 +208,11 @@
             </div>
             <h3>Publish</h3>
             <label for="pub-topic-builder">Topic</label>
+
+            <!-- Topic 빌더 -->
             <div class="div-group">
                 <p><strong>Topic Structure</strong></p>
                 <div class="topic-table">
-                    <!-- 라벨 행 -->
                     <div class="topic-row">
                         <label><span class="red">Noun</span></label>
                         <label><span class="blue">Verb</span></label>
@@ -210,7 +220,6 @@
                         <label><span class="red">Property2</span></label>
                         <label><span class="red">Property3</span></label>
                     </div>
-                    <!-- 입력 필드 행 -->
                     <div class="topic-row">
                         <input type="text" id="noun" placeholder="flight" value="flight">
                         <input type="text" id="verb" placeholder="boarding" value="boarding">
@@ -222,6 +231,8 @@
                 <span class="clickable-text" onclick="generateTopic()">Generate Topic</span>
                 <span class="clickable-text" onclick="clearTopic()">Clear All</span>
             </div>
+
+            <!-- 최종 토픽 -->
             <div class="div-group">
                 <p><strong>Final Topic:</strong></p>
                 <div id="final-topic-box">
@@ -235,6 +246,18 @@
                 <p id="pub-status">Waiting to publish...</p>
             </div>
 
+            <!-- Delivery Mode -->
+            <label for="delivery-mode">Delivery Mode:</label>
+            <div class="div-group">
+                <label>
+                    <input type="radio" name="delivery-mode" value="NON_PRESISTENT" checked> Direct
+                </label>
+                <label>
+                    <input type="radio" name="delivery-mode" value="PERSISTENT"> Persistent
+                </label>
+            </div>
+
+            <!-- 메시지 컨텐츠와 개수 -->
             <label for="pub-content">Message Content</label>
             <textarea id="pub-content"></textarea>
 
@@ -266,6 +289,74 @@
 <!-- Queue 탭 내용 -->
 <div id="queue" class="tab-content">
     <p>Queue 이용한 JSCMP 처리</p>
+    <div style="display:flex; justify-content: space-between; gap: 2%;">
+        <div class="half pub">
+            <h3>Queue Producer</h3>
+
+            <!-- Queue 연결 버튼 -->
+            <div class="status-container">
+                <p>
+                    <span class="status-text">Status: </span>
+                    <span id="connect-queue-status">Not Connected</span>
+                </p>
+                <button onclick="connectQueue()">Connect Queue</button>
+            </div>
+
+            <!-- Delivery Mode -->
+            <label for="delivery-mode">Delivery Mode:</label>
+            <div class="div-group">
+                <label>
+                    <input type="radio" name="delivery-mode" value="NON_PRESISTENT" checked> Direct
+                </label>
+                <label>
+                    <input type="radio" name="delivery-mode" value="PERSISTENT"> Persistent
+                </label>
+            </div>
+
+            <!-- Queue Name -->
+            <label for="queue-name">Queue Name:</label>
+            <input id="queue-name" type="text" placeholder="Enter Queue Name" style="width: 100%; padding: 8px; margin-bottom: 12px;">
+
+            <!-- Topic -->
+            <label for="topic-name">Topic:</label>
+            <input id="topic-name" type="text" placeholder="Enter Topic" style="width: 100%; padding: 8px; margin-bottom: 12px;">
+
+            <!-- 메시지 컨텐츠 -->
+            <label for="queue-message-content">Message Content:</label>
+            <textarea id="queue-message-content" rows="4" style="width: 100%; margin-bottom: 12px;"></textarea>
+
+            <!-- 메시지 개수 -->
+            <label for="queue-message-count">Message Count:</label>
+            <input id="queue-message-count" type="number" min="1" value="1" style="width: 100%; padding: 8px; margin-bottom: 12px;">
+
+            <!-- Queue Producer 버튼 -->
+            <button onclick="produceTopicToQueue()">Queue Producer</button>
+            <p id="queue-status-message">Waiting for message...</p>
+        </div>
+        <!-- Queue Consumer (우측) -->
+        <div class="half sub">
+            <h3>Queue Consumer</h3>
+
+            <div class="status-container">
+                <p>
+                    <span class="status-text">Status: </span>
+                    <span id="connect-consumer-status">Not Connected</span>
+                </p>
+                <button onclick="connectConsumer()">Connect Consumer</button>
+            </div>
+
+            <!-- Subscribe 버튼 -->
+            <label for="consumer-queue-name">Queue Name:</label>
+            <input id="consumer-queue-name" type="text" placeholder="Enter Queue Name" style="width: 100%; padding: 8px; margin-bottom: 12px;">
+
+            <button onclick="consumeMessage()">Start Consuming</button>
+            <p id="consume-status-message">Not consuming yet...</p>
+
+            <!-- 받은 메시지 목록 -->
+            <h4>Received Messages</h4>
+            <ul id="received-messages" style="background: #fafafa; padding: 10px; border: 1px solid #ccc; height: 200px; overflow-y: auto; list-style: none;"></ul>
+        </div>
+    </div>
 </div>
 
 <!-- Other 탭 내용 -->
@@ -274,20 +365,32 @@
 </div>
 
 <script>
+    // 기존 변수와 함수들은 그대로 유지
+    const API_URL = "/api";
+    let isPublisherConnected = false;
+    let isSubscriberConnected = false;
+
+    //ENUM TYPE 전달모드
+    const DeliveryMode = {
+        NON_PERSISTENT: "NON_PERSISTENT",   // Direct
+        PERSISTENT: "PERSISTENT"            // 영속성 전달 (disk 저장)
+    };
+
+    // 탭 내용을 관리하는 함수
     function showTab(tabId) {
-        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('.tabs button').forEach(button => button.classList.remove('active'));
+        // 1. 모든 탭 콘텐츠를 숨기기
+        const tabs = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => tab.classList.remove('active'));
+
+        // 2. 모든 탭 버튼의 active 상태를 제거
+        const tabButtons = document.querySelectorAll('.tabs button');
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+
+        // 3. 클릭된 탭 콘텐츠와 버튼을 활성화
         document.getElementById(tabId).classList.add('active');
-        document.querySelector(`.tabs button[onclick="showTab('${tabId}')"]`).classList.add('active');
+        event.target.classList.add('active');
     }
 
-   // 전역에 변수 선언
-   const API_URL = "/api";
-   let isPublisherConnected = false;
-   const msgCountInput = 1; // 기본 메시지 개수를 1로 설정
-   const count = parseInt(msgCountInput, 10);
-
-    // Connect Publisher 함수 수정
     async function connectPublisher() {
         try {
             const response = await fetch(`${API_URL}/publisher/connect`, { method: "POST" });
@@ -305,210 +408,279 @@
         }
     }
 
-       async function connectSubscriber() {
-           try {
-               const response = await fetch(`${API_URL}/subscriber/connect`, { method: "POST" });
-               const result = await response.text();
+    async function publish() {
+        // 연결 체크
+        if (!isPublisherConnected) {
+            alert("Please connect to Publisher before publishing a message.");
+            return;
+        }
 
-               document.getElementById("connect-sub-status").textContent = result;
+        // Topic 값 가져오기
+        const topic = document.getElementById("result-noun").textContent + "/" +
+                      document.getElementById("result-verb").textContent + "/" +
+                      document.getElementById("result-property1").textContent + "/" +
+                      document.getElementById("result-property2").textContent + "/" +
+                      document.getElementById("result-property3").textContent;
 
-               if (response.ok) {
-                   isSubscriberConnected = true; // 연결 성공
-               } else {
-                   alert("Failed to connect subscriber. Please try again.");
-               }
-           } catch (error) {
-               alert("Error while connecting to subscriber: " + error.message);
-           }
-       }
+        const message = document.getElementById("pub-content").value;
 
-       async function publish() {
-           // 연결 상태 확인
-           if (!isPublisherConnected) {
-               alert("Please connect to Publisher before publishing a message.");
-               return;
-           }
+        // Delivery Mode 선택된 값 가져오기
+        const deliveryModeSelection = document.querySelector('input[name="delivery-mode"]:checked').value;
+        const deliveryMode = DeliveryMode[deliveryModeSelection] || DeliveryMode.NON_PERSISTENT; // DeliveryMode 객체 활용
 
-           const topic = document.getElementById("result-noun").textContent + "/" +
-                         document.getElementById("result-verb").textContent + "/" +
-                         document.getElementById("result-property1").textContent + "/" +
-                         document.getElementById("result-property2").textContent + "/" +
-                         document.getElementById("result-property3").textContent;
+        // 메시지 개수 가져오기
+        const msgCountInput = document.getElementById("pub-msg-count").value;
+        const count = parseInt(msgCountInput, 10);
 
-           const message = document.getElementById("pub-content").value;
+        if (isNaN(count) || count < 1) {
+            alert("Please enter a valid number for Message Count (minimum is 1).");
+            return;
+        }
 
-           // Get the Message Count entered by the user
-           const msgCountInput = document.getElementById("pub-msg-count").value;
-           const count = parseInt(msgCountInput, 10);
+        try {
+            // 서버로 데이터 전송
+            const response = await fetch(`${API_URL}/publisher/publish`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ topic, message, count, deliveryMode })
+            });
 
-           // Validate the count before proceeding
-           if (isNaN(count) || count < 1) {
-               alert("Please enter a valid number for Message Count (minimum 1).");
-               return;
-           }
+            const result = await response.text();
 
-           try {
-               // Send the POST request to the server
-               const response = await fetch(`${API_URL}/publisher/publish`, {
-                   method: "POST",
-                   headers: { "Content-Type": "application/json" },
-                   body: JSON.stringify({ topic, message, count })
-               });
-
-               // Parse the server response
-               const result = await response.text();
-
-               // Display the sent message and publishing result
-               const statusElement = document.getElementById("pub-status");
-               if (response.ok) {
-                   statusElement.innerHTML = `
-                       <b>Sent Message:</b> ${message}<br>
-                       <b>Count:</b> ${count}
-                   `;
-               } else {
-                   statusElement.innerHTML = `
-                       <b>Error:</b> Failed to publish message.<br>
-                       <b>Details:</b> ${result}
-                   `;
-               }
-           } catch (error) {
-               // Handle unexpected errors
-               document.getElementById("pub-status").innerHTML = `
-                   <b>Error:</b> Unable to connect to the server.<br>
-                   <b>Details:</b> ${error.message}
-               `;
-           }
-       }
-
-       async function subscribe() {
-       // Subscriber 연결 상태 확인
-       if (!isSubscriberConnected) {
-           alert("Please connect to Subscriber before subscribing to a topic.");
-           return;
-       }
-
-       const topic = document.getElementById("sub-topic").value;
-       if (!topic) {
-           alert("Please enter a topic before subscribing.");
-           return;
-       }
-
+            const statusElement = document.getElementById("pub-status");
+            if (response.ok) {
+                statusElement.innerHTML = `<b>Published:</b> ${message} <br> <b>Count:</b> ${count} <br> <b>Mode:</b> ${deliveryMode}`;
+            } else {
+                statusElement.innerHTML = `<b>Error:</b> Failed to publish message.<br><b>Details:</b> ${result}`;
+            }
+        } catch (error) {
+            document.getElementById("pub-status").innerHTML = `<b>Error:</b> ${error.message}`;
+        }
+    }
+   async function connectSubscriber() {
        try {
-           const response = await fetch(`${API_URL}/subscriber/subscribe`, {
-               method: "POST",
-               headers: { "Content-Type": "application/json" },
-               body: JSON.stringify({ topic })
-           });
-
+           const response = await fetch(`${API_URL}/subscriber/connect`, { method: "POST" });
            const result = await response.text();
-           document.getElementById("subscribe-status").textContent = result;
+
+           document.getElementById("connect-sub-status").textContent = result;
 
            if (response.ok) {
-               // WebSocket 연결 (구독 요청 성공 후)
-               connectWebSocket();
+               isSubscriberConnected = true; // 연결 성공
+           } else {
+               alert("Failed to connect subscriber. Please try again.");
            }
        } catch (error) {
-           alert("Error while subscribing: " + error.message);
+           alert("Error while connecting to subscriber: " + error.message);
        }
-     }
+   }
 
-     let socket;
-     function connectWebSocket() {
-           if (socket && socket.readyState === WebSocket.OPEN) {
-               console.log("WebSocket is already connected.");
-               return;
-           }
+   async function subscribe() {
+   // Subscriber 연결 상태 확인
+   if (!isSubscriberConnected) {
+       alert("Please connect to Subscriber before subscribing to a topic.");
+       return;
+   }
 
-           // WebSocket URL 설정 (여기에 실제 WebSocket 서버 URL로 변경)
-           socket = new WebSocket("ws://localhost:8081/ws/messages");
+   const topic = document.getElementById("sub-topic").value;
+   if (!topic) {
+       alert("Please enter a topic before subscribing.");
+       return;
+   }
 
-           socket.onopen = () => {
-               console.log("WebSocket connected!");
-           };
+   try {
+       const response = await fetch(`${API_URL}/subscriber/subscribe`, {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ topic })
+       });
 
-           socket.onmessage = (event) => {
-               const message = event.data;
-               displayReceivedMessage(message); // 수신된 메시지 표시
-           };
+       const result = await response.text();
+       document.getElementById("subscribe-status").textContent = result;
 
-           socket.onerror = (error) => {
-               console.error("WebSocket error:", error);
-           };
-
-           socket.onclose = () => {
-               console.log("WebSocket connection closed!");
-           };
+       if (response.ok) {
+           // WebSocket 연결 (구독 요청 성공 후)
+           connectWebSocket();
        }
+   } catch (error) {
+       alert("Error while subscribing: " + error.message);
+   }
+ }
 
-       function generateTopic() {
-           document.getElementById("result-noun").textContent = document.getElementById("noun").value.trim();
-           document.getElementById("result-verb").textContent = document.getElementById("verb").value.trim();
-           document.getElementById("result-property1").textContent = document.getElementById("property1").value.trim();
-           document.getElementById("result-property2").textContent = document.getElementById("property2").value.trim();
-           document.getElementById("result-property3").textContent = document.getElementById("property3").value.trim();
-       }
-
-       function clearTopic() {
-           document.getElementById("noun").value = "";
-           document.getElementById("verb").value = "";
-           document.getElementById("property1").value = "";
-           document.getElementById("property2").value = "";
-           document.getElementById("property3").value = "";
-           generateTopic();
+ let socket;
+ function connectWebSocket() {
+       if (socket && socket.readyState === WebSocket.OPEN) {
+           console.log("WebSocket is already connected.");
+           return;
        }
 
-       function displayReceivedMessage(message) {
-           const messageList = document.getElementById("message-list");
+       // WebSocket URL 설정 (여기에 실제 WebSocket 서버 URL로 변경)
+       socket = new WebSocket("ws://localhost:8081/ws/messages");
 
-           // 새로운 메시지를 리스트에 추가
-           const messageItem = document.createElement("li");
-           messageItem.textContent = message;
-           messageList.appendChild(messageItem);
-       }
-       function copyFinalTopic() {
-           // Final Topic 문자열 생성
-           const finalTopic = document.getElementById("result-noun").textContent + "/" +
-                              document.getElementById("result-verb").textContent + "/" +
-                              document.getElementById("result-property1").textContent + "/" +
-                              document.getElementById("result-property2").textContent + "/" +
-                              document.getElementById("result-property3").textContent;
+       socket.onopen = () => {
+           console.log("WebSocket connected!");
+       };
 
-           // Clipboard API로 복사
-           navigator.clipboard.writeText(finalTopic).then(() => {
-               alert("Final Topic copied to clipboard!");
-           }).catch(err => {
-               console.error("Failed to copy text:", err);
-           });
-       }
-        function previewMessageContent() {
-            // 미리보기 JSON 데이터
-            const previewContent = `
+       socket.onmessage = (event) => {
+           const message = event.data;
+           displayReceivedMessage(message); // 수신된 메시지 표시
+       };
+
+       socket.onerror = (error) => {
+           console.error("WebSocket error:", error);
+       };
+
+       socket.onclose = () => {
+           console.log("WebSocket connection closed!");
+       };
+   }
+
+   function generateTopic() {
+       document.getElementById("result-noun").textContent = document.getElementById("noun").value.trim();
+       document.getElementById("result-verb").textContent = document.getElementById("verb").value.trim();
+       document.getElementById("result-property1").textContent = document.getElementById("property1").value.trim();
+       document.getElementById("result-property2").textContent = document.getElementById("property2").value.trim();
+       document.getElementById("result-property3").textContent = document.getElementById("property3").value.trim();
+   }
+
+   function clearTopic() {
+       document.getElementById("noun").value = "";
+       document.getElementById("verb").value = "";
+       document.getElementById("property1").value = "";
+       document.getElementById("property2").value = "";
+       document.getElementById("property3").value = "";
+       generateTopic();
+   }
+
+   function displayReceivedMessage(message) {
+       const messageList = document.getElementById("message-list");
+
+       // 새로운 메시지를 리스트에 추가
+       const messageItem = document.createElement("li");
+       messageItem.textContent = message;
+       messageList.appendChild(messageItem);
+   }
+   function copyFinalTopic() {
+       // Final Topic 문자열 생성
+       const finalTopic = document.getElementById("result-noun").textContent + "/" +
+                          document.getElementById("result-verb").textContent + "/" +
+                          document.getElementById("result-property1").textContent + "/" +
+                          document.getElementById("result-property2").textContent + "/" +
+                          document.getElementById("result-property3").textContent;
+
+       // Clipboard API로 복사
+       navigator.clipboard.writeText(finalTopic).then(() => {
+           alert("Final Topic copied to clipboard!");
+       }).catch(err => {
+           console.error("Failed to copy text:", err);
+       });
+   }
+    function previewMessageContent() {
+        // 미리보기 JSON 데이터
+        const previewContent = `
+    {
+    "airline": "ExampleAirline",
+    "region": "Ontario",
+    "requestId": 44334,
+    "flight": {
+        "flightModel": "boeing737",
+        "flightRoute": "international"
+    },
+    "items": [
         {
-        "airline": "ExampleAirline",
-        "region": "Ontario",
-        "requestId": 44334,
-        "flight": {
-            "flightModel": "boeing737",
-            "flightRoute": "international"
-        },
-        "items": [
-            {
-                "origin": "yow",
-                "destination": "ewr",
-                "status": "boarding"
+            "origin": "yow",
+            "destination": "ewr",
+            "status": "boarding"
+        }
+    ],
+    "totalPassengers": 300,
+    "lastUpdated": "2024-01-05T14:30:00"
+    }
+        `.trim();
+
+        // Message Content textarea에 데이터 삽입
+        document.getElementById("pub-content").value = previewContent;
+    }
+
+    // 페이지 로드 후 자동으로 미리보기 내용을 표시
+    document.addEventListener("DOMContentLoaded", previewMessageContent);
+
+
+    // Queue 연결 함수
+    async function connectQueue() {
+        try {
+            const response = await fetch(`${API_URL}/queue/connect`, { method: "POST" });
+            const result = await response.text();
+
+            document.getElementById("connect-queue-status").textContent = result;
+
+            if (response.ok) {
+                isQueueConnected = true; // 연결 성공
+            } else {
+                alert("Failed to connect to Queue. Please try again.");
             }
-        ],
-        "totalPassengers": 300,
-        "lastUpdated": "2024-01-05T14:30:00"
+        } catch (error) {
+            alert("Error while connecting to Queue: " + error.message);
         }
-            `.trim();
+    }
 
-            // Message Content textarea에 데이터 삽입
-            document.getElementById("pub-content").value = previewContent;
+    // 메시지를 Queue로 보내는 함수
+    async function produceTopicToQueue() {
+        // 연결 상태 확인
+        if (!isQueueConnected) {
+            alert("Please connect to the Queue before sending a message.");
+            return;
         }
 
-        // 페이지 로드 후 자동으로 미리보기 내용을 표시
-        document.addEventListener("DOMContentLoaded", previewMessageContent);
+        // 필드 값 가져오기
+        const topicName = document.getElementById("topic-name").value.trim();
+        const queueName = document.getElementById("queue-name").value.trim();
+        const messageContent = document.getElementById("queue-message-content").value.trim();
+        const messageCountInput = document.getElementById("queue-message-count").value;
+        // Delivery Mode 선택된 값 가져오기
+        const deliveryModeSelection = document.querySelector('input[name="delivery-mode"]:checked').value;
+        const deliveryMode = DeliveryMode[deliveryModeSelection] || DeliveryMode.NON_PERSISTENT; // DeliveryMode 객체 활용
+
+        // 메시지 개수 파싱
+        const messageCount = parseInt(messageCountInput, 10);
+
+        // 필드 검증
+        if (!topicName) {
+            alert("Please enter a Topic Name.");
+            return;
+        }
+        if (!queueName) {
+            alert("Please enter a Queue Name.");
+            return;
+        }
+        if (!messageContent) {
+            alert("Please enter Message Content.");
+            return;
+        }
+        if (isNaN(messageCount) || messageCount < 1) {
+            alert("Please enter a valid Message Count (minimum is 1).");
+            return;
+        }
+
+        try {
+            // 서버로 데이터 전송
+            const response = await fetch(`${API_URL}/queue/produceTopicToQueue`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ queueName, messageContent, messageCount, deliveryMode }),
+            });
+
+            const result = await response.text();
+
+            const statusElement = document.getElementById("queue-status-message");
+            if (response.ok) {
+                statusElement.innerHTML = `<b>Message sent to queue:</b> ${queueName}<br><b>Count:</b> ${messageCount}<br><b>Mode:</b> ${deliveryMode}`;
+            } else {
+                statusElement.innerHTML = `<b>Error:</b> Failed to send message to queue.<br><b>Details:</b> ${result}`;
+            }
+        } catch (error) {
+            document.getElementById("queue-status-message").innerHTML = `<b>Error:</b> ${error.message}`;
+        }
+    }
 </script>
 </body>
 </html>

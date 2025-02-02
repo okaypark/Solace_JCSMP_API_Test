@@ -1,10 +1,10 @@
 package me.park.controller;
 
+import com.solacesystems.jcsmp.DeliveryMode;
+import me.park.dto.PublishRequest;
 import me.park.service.PublisherService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 /**
  * PublisherController:
@@ -27,17 +27,17 @@ public class PublisherController {
         return publisherService.connect();
     }   // Service에 Events Broker Connect처리
 
-
-    //HTTP에서 Publish 실행시 (Solace Events Broker에 게시)
+    // HTTP에서 Publish 실행 시 (Solace Events Broker에 게시)
     @PostMapping("/publish")
-    public String publish(@RequestBody Map<String, Object> body) {
+    public String publish(@RequestBody PublishRequest publReqDTO) {
 
         // 요청 본문에서 데이터 추출
-        String topic = body.get("topic").toString();
-        String message = body.get("message").toString();
-        int count = Integer.parseInt(body.get("count").toString());
+        String topic = publReqDTO.getTopic();
+        String message = publReqDTO.getMessage();
+        DeliveryMode deliveryMode = publReqDTO.getDeliveryMode();
+        int count = publReqDTO.getCount();
 
         // Solace Events Broker에 게시
-        return publisherService.publish(topic, message, count);
+        return publisherService.publish(topic, message, count, deliveryMode);
     }
 }

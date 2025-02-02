@@ -52,59 +52,95 @@ public class QueueProducer {
         session.closeSession();
     }
 
-    // 큐 Broker에 등록
-    public Queue provisionQueue(String queueName) throws JCSMPException {
-        // 큐 생성
-        Queue queue = JCSMPFactory.onlyInstance().createQueue(queueName);
+    // 공통 큐 프로비저닝 로직
+    @SneakyThrows
+    private Queue provision(String queueName, int quota, int permission) {
+        // 큐 객체 생성
+        final Queue queue = JCSMPFactory.onlyInstance().createQueue(queueName);
 
-        // 큐 기본 설정
-        EndpointProperties endpointProperties = new EndpointProperties();
-        endpointProperties.setPermission(EndpointProperties.PERMISSION_DELETE);
-        endpointProperties.setAccessType(EndpointProperties.ACCESSTYPE_EXCLUSIVE);
-        endpointProperties.setQuota(100); // 큐의 메시지 저장 용량(100MB 설정)
+        // 큐 EndpointProperties 설정
+        EndpointProperties endpointProps = new EndpointProperties();
+        endpointProps.setAccessType(EndpointProperties.ACCESSTYPE_EXCLUSIVE); // 접근 타입, 독점, non (Exclusive 또는 Non-exclusive)
+        endpointProps.setQuota(quota);                                        // 메시지 저장 용량 (MB 단위)
+        endpointProps.setPermission(permission);                              // 권한 (Consume, Delete 등)
 
-        // Broker에 등록
-        session.provision(queue, endpointProperties, JCSMPSession.FLAG_IGNORE_ALREADY_EXISTS);
-        System.out.printf("Queue '%s' provisioned successfully.%n", queueName);
-        return queue;
+        // 큐를 브로커에 등록
+        session.provision(queue, endpointProps, JCSMPSession.FLAG_IGNORE_ALREADY_EXISTS);
+        System.out.printf("Queue '%s' provisioned successfully with Quota: %dMB%n",
+                queueName, quota);
+
+        return queue; // 프로비저닝된 큐 반환
     }
 
+    // 큐에 메세지 생산
     @SneakyThrows
-    public void createTopicToQueueMapping(String queueName, String topicName, String sendMessage, int count) {
+    public void produceQueue(String queueName, DeliveryMode deliveryMode, String message, int count) {
 
-        // 큐 Broker에 등록
-        Queue queue = provisionQueue(queueName);
+        // 큐 생성 및 등록
+        Queue queue = provision(queueName, 100, EndpointProperties.PERMISSION_CONSUME); // 기본적으로 소비 권한 설정
 
-        // Topic 연결객체 생성
-        Topic topic = JCSMPFactory.onlyInstance().createTopic(topicName);
-
-        // topicName의 토픽을 구독해서 위에서 등록된 큐로 구독 (메세지 보장)
-        session.addSubscription(queue, topic, JCSMPSession.WAIT_FOR_CONFIRM);
-
-        // 앞서 등록후 Broker로 부터 Ack 결과값 응답받기
-        final XMLMessageProducer prod = session.getMessageProducer(
+        // 메시지 프로듀서 생성 (ACK 핸들러 포함)
+        final XMLMessageProducer producer = session.getMessageProducer(
                 new JCSMPStreamingPublishCorrelatingEventHandler() {
-                    // Broker로부터 정상처리 수신시
+                    // 브로커 처리 성공 시
                     @Override
                     public void responseReceivedEx(Object key) {
                         System.out.println("Producer received response for msg: " + key.toString());
                     }
 
-                    // Broker로부터 처리실패 수신시
+                    // 브로커 처리 실패 시
                     @Override
                     public void handleErrorEx(Object key, JCSMPException cause, long timestamp) {
                         System.out.printf("Producer received error for msg: %s@%s - %s%n", key.toString(), timestamp, cause);
                     }
                 });
 
-        // 토픽 메세지 Broker 큐에 전송
-        TextMessage msg =  JCSMPFactory.onlyInstance().createMessage(TextMessage.class);
-        msg.setDeliveryMode(DeliveryMode.PERSISTENT);
+        // 메시지 전송
+        TextMessage msg = JCSMPFactory.onlyInstance().createMessage(TextMessage.class);
+        msg.setDeliveryMode(deliveryMode);  // NON_PERSISTENT OR PERSISTENT
         for (int i = 1; i <= count; i++) {
-            msg.setText("Message number " + i);
-            msg.setCorrelationKey(i);
-            prod.send(msg, topic);
+            msg.setText(message + " #" + i); // 메시지 내용 생성
+            msg.setCorrelationKey(i);       // 확인 용도 Key 설정
+            producer.send(msg, queue);      // 토픽에 메시지 전송
         }
-        System.out.println("Sent messages.");
+    }
+
+
+    // 토픽을 큐에 맵핑하고 메시지 생산
+    @SneakyThrows
+    public void produceTopicToQueueMapping(String topicName, String queueName, DeliveryMode deliveryMode, String message, int count) {
+        // 큐를 생성 (Exclusive 접근, 기본 용량 100MB, PERMISSION_CONSUME)
+        Queue queue = provision(queueName, 100, EndpointProperties.PERMISSION_CONSUME);
+
+        // Topic 객체 생성
+        Topic topic = JCSMPFactory.onlyInstance().createTopic(topicName);
+
+        // 해당 토픽을 큐에 맵핑 및 등록
+        session.addSubscription(queue, topic, JCSMPSession.WAIT_FOR_CONFIRM);
+
+        // 메시지 프로듀서 생성 (ACK 핸들러 포함)
+        final XMLMessageProducer producer = session.getMessageProducer(
+                new JCSMPStreamingPublishCorrelatingEventHandler() {
+                    // 브로커 처리 성공 시
+                    @Override
+                    public void responseReceivedEx(Object key) {
+                        System.out.println("Producer received response for msg: " + key.toString());
+                    }
+
+                    // 브로커 처리 실패 시
+                    @Override
+                    public void handleErrorEx(Object key, JCSMPException cause, long timestamp) {
+                        System.out.printf("Producer received error for msg: %s@%s - %s%n", key.toString(), timestamp, cause);
+                    }
+                });
+
+        // 메시지 전송
+        TextMessage msg = JCSMPFactory.onlyInstance().createMessage(TextMessage.class);
+        msg.setDeliveryMode(deliveryMode);  // NON_PERSISTENT OR PERSISTENT
+        for (int i = 1; i <= count; i++) {
+            msg.setText(message + " #" + i); // 메시지 내용 생성
+            msg.setCorrelationKey(i);       // 확인 용도 Key 설정
+            producer.send(msg, topic);      // 토픽에 메시지 전송
+        }
     }
 }

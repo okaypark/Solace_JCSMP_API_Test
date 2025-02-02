@@ -1,5 +1,6 @@
 package me.park.service;
 
+import com.solacesystems.jcsmp.DeliveryMode;
 import me.park.solace.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,6 @@ public class PublisherService {
     //Event Broker Connect
     public String connect() {
         try {
-
             publisher.connect();
             return "Publisher connected successfully to Solace Event Broker.";
         } catch (Exception e) {
@@ -32,11 +32,11 @@ public class PublisherService {
     }
 
     ////Event Broker Pub처리 (HTTP에서 받은 보낼 메세지 횟수 만큼)
-    public String publish(String topic, String message, int count) {
+    public String publish(String topic, String message, int count, DeliveryMode deliveryMode) {
         StringBuilder result = new StringBuilder();
 
         for (int i = 1; i <= count; i++) {
-            publisher.publish(topic, message); // 단일 메시지 발행
+            publisher.publish(topic, message, deliveryMode); // 단일 메시지 발행
             result.append("Message ").append(i).append(": ").append(message).append("\n");
         }
 

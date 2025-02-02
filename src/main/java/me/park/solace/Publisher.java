@@ -51,11 +51,20 @@ public class Publisher {
     }
 
     //Solace JSCMP 게시처리 (topic, message)
-    public void publish(String topic, String message) {
+    public void publish(String topic, String message, DeliveryMode deliveryMode) {
         try {
             //
             TextMessage textMessage = JCSMPFactory.onlyInstance().createMessage(TextMessage.class);
-//            textMessage.setDeliveryMode(DeliveryMode.NON.PRESISTENT);   // 메세지가 디스크에 저장되지 않음,  PRESISTENT -> 디스크저장(금융거래, 결제시스템, 주문관리)
+
+            //메세지 모드 (DIRECT OR PERSISTENT)
+            if (deliveryMode == DeliveryMode.PERSISTENT) {
+                textMessage.setDeliveryMode(DeliveryMode.PERSISTENT);
+            } else if (deliveryMode.equals("NON_PERSISTENT")) {
+                textMessage.setDeliveryMode(DeliveryMode.NON_PERSISTENT);
+            }
+            //PRINT CHECK
+            System.out.println("## Publish Delivery Mode : " + (deliveryMode.equals("PERSISTENT")? "PERSISTENT" : "DIRECT"));
+
             textMessage.setText(message);
             Topic solaceTopic = JCSMPFactory.onlyInstance().createTopic(topic);
             producer.send(textMessage, solaceTopic);
