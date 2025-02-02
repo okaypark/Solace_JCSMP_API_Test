@@ -73,14 +73,7 @@
             top: 10px;
             left: 20px;
         }
-        h3 {
-            margin-top: 0;
-            position: absolute;
-            font-size: 150%;
-            font-weight: bold;
-            top: 10px;
-            left: 20px;
-        }
+
         label {
             font-weight: bold;
             font-size: 120%;
@@ -206,7 +199,6 @@
                 </p>
                 <button onclick="connectPublisher()">Connect</button>
             </div>
-            <h3>Publish</h3>
             <label for="pub-topic-builder">Topic</label>
 
             <!-- Topic 빌더 -->
@@ -276,12 +268,13 @@
                 </p>
                 <button onclick="connectSubscriber()">Connect</button>
             </div>
-            <h3>Subscribe</h3>
             <input id="sub-topic" type="text" placeholder="Enter Topic to Subscribe">
             <button onclick="subscribe()">Subscribe</button>
             <p id="subscribe-status">Not subscribed yet...</p>
             <h3>Received Messages</h3>
-            <ul id="topic-message-list"></ul>
+            <br>
+            <br>
+            <ul id="topic-message-list" style="margin-top: 20px;"></ul>
         </div>
     </div>
 </div>
@@ -291,7 +284,7 @@
     <p>Queue 이용한 JSCMP 처리</p>
     <div style="display:flex; justify-content: space-between; gap: 2%;">
         <div class="half pub">
-            <h3>Queue Producer</h3>
+            <h2>Queue Producer</h2>
 
             <!-- Queue 연결 버튼 -->
             <div class="status-container">
@@ -335,7 +328,7 @@
         </div>
         <!-- Queue Consumer (우측) -->
         <div class="half sub">
-            <h3>Queue Consumer</h3>
+            <h2>Queue Consumer</h2>
 
             <div class="status-container">
                 <p>
