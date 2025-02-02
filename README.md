@@ -16,7 +16,7 @@
    ```
    웹페이지 실행 URL : http://localhost:8081
 ![JCSMP API TEST 화면](src/main/resources/images/JCSMP_API_TEST_SCREEN.png)
-
+   ![JCSMP API TEST 화면](src/main/resources/images/JCSMP_API_TEST_SCREEN2.png)
 
 4. 클래스 다이아그램
    ![클래스 다이아그램](src/main/resources/images/classDiagram.svg)  
@@ -27,8 +27,7 @@
 
 
 ## **추가작업 예정**
-- Queue topic 처리
-- 게런티드(persistent), direct 구분 기능
+
 - Replay 기능 추가
 
 - PLAYGROUND js 분석 및 JCSMP API 프로그램과 연동 구상
@@ -39,6 +38,8 @@
 - 특정 메시징 시나리오 구현.
 - Spring Boot와 Jakarta EE와의 통합 학습.
 - JCSMP PUB/SUB TOPIC 메세지 처리
+- JCSMP QUEUE-TOPIC MAPPING 메세지 처리
+- DIRECT, PERSISTENT 영속설정 
 
 ## **기술 스택**
 - **Java 17**
