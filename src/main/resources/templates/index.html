@@ -281,7 +281,7 @@
             <button onclick="subscribe()">Subscribe</button>
             <p id="subscribe-status">Not subscribed yet...</p>
             <h3>Received Messages</h3>
-            <ul id="message-list"></ul>
+            <ul id="topic-message-list"></ul>
         </div>
     </div>
 </div>
@@ -299,7 +299,7 @@
                     <span class="status-text">Status: </span>
                     <span id="connect-queue-status">Not Connected</span>
                 </p>
-                <button onclick="connectQueue()">Connect Queue</button>
+                <button onclick="connectQueueProducer()">Connect Queue</button>
             </div>
 
             <!-- Delivery Mode -->
@@ -313,13 +313,13 @@
                 </label>
             </div>
 
-            <!-- Queue Name -->
-            <label for="queue-name">Queue Name:</label>
-            <input id="queue-name" type="text" placeholder="Enter Queue Name" style="width: 100%; padding: 8px; margin-bottom: 12px;">
-
             <!-- Topic -->
             <label for="topic-name">Topic:</label>
             <input id="topic-name" type="text" placeholder="Enter Topic" style="width: 100%; padding: 8px; margin-bottom: 12px;">
+
+            <!-- Queue Name -->
+            <label for="queue-name">Queue Name:</label>
+            <input id="queue-name" type="text" placeholder="Enter Queue Name" style="width: 100%; padding: 8px; margin-bottom: 12px;">
 
             <!-- 메시지 컨텐츠 -->
             <label for="queue-message-content">Message Content:</label>
@@ -349,12 +349,11 @@
             <label for="consumer-queue-name">Queue Name:</label>
             <input id="consumer-queue-name" type="text" placeholder="Enter Queue Name" style="width: 100%; padding: 8px; margin-bottom: 12px;">
 
-            <button onclick="consumeMessage()">Start Consuming</button>
-            <p id="consume-status-message">Not consuming yet...</p>
-
             <!-- 받은 메시지 목록 -->
             <h4>Received Messages</h4>
             <ul id="received-messages" style="background: #fafafa; padding: 10px; border: 1px solid #ccc; height: 200px; overflow-y: auto; list-style: none;"></ul>
+            <button onclick="consumeMessage()">Queue Consuming</button>
+            <p id="consume-status-message">Not consuming yet...</p>
         </div>
     </div>
 </div>
@@ -369,6 +368,7 @@
     const API_URL = "/api";
     let isPublisherConnected = false;
     let isSubscriberConnected = false;
+    let isConsumerConnected = false;
 
     //ENUM TYPE 전달모드
     const DeliveryMode = {
@@ -499,7 +499,7 @@
 
        if (response.ok) {
            // WebSocket 연결 (구독 요청 성공 후)
-           connectWebSocket();
+           connectWebSocket("Topic");
        }
    } catch (error) {
        alert("Error while subscribing: " + error.message);
@@ -507,7 +507,7 @@
  }
 
  let socket;
- function connectWebSocket() {
+ function connectWebSocket(msgType) {
        if (socket && socket.readyState === WebSocket.OPEN) {
            console.log("WebSocket is already connected.");
            return;
@@ -522,7 +522,7 @@
 
        socket.onmessage = (event) => {
            const message = event.data;
-           displayReceivedMessage(message); // 수신된 메시지 표시
+           displayReceivedMessage(message, msgType); // 수신된 메시지 표시
        };
 
        socket.onerror = (error) => {
@@ -533,6 +533,26 @@
            console.log("WebSocket connection closed!");
        };
    }
+
+    function displayReceivedMessage(message, msgType) {
+
+        let messageList;
+
+        if (msgType == "Topic") {
+            messageList = document.getElementById("topic-message-list");
+        } else if (msgType == "Queue") {
+            messageList = document.getElementById("consume-status-message");
+        }
+
+        if (messageList) {
+            // 새로운 메시지를 리스트에 추가
+            const messageItem = document.createElement("li");
+            messageItem.textContent = message;
+            messageList.appendChild(messageItem);
+        } else {
+            console.error(`Invalid msgType: ${msgType}`);
+        }
+    }
 
    function generateTopic() {
        document.getElementById("result-noun").textContent = document.getElementById("noun").value.trim();
@@ -551,14 +571,9 @@
        generateTopic();
    }
 
-   function displayReceivedMessage(message) {
-       const messageList = document.getElementById("message-list");
 
-       // 새로운 메시지를 리스트에 추가
-       const messageItem = document.createElement("li");
-       messageItem.textContent = message;
-       messageList.appendChild(messageItem);
-   }
+
+
    function copyFinalTopic() {
        // Final Topic 문자열 생성
        const finalTopic = document.getElementById("result-noun").textContent + "/" +
@@ -606,9 +621,9 @@
 
 
     // Queue 연결 함수
-    async function connectQueue() {
+    async function connectQueueProducer() {
         try {
-            const response = await fetch(`${API_URL}/queue/connect`, { method: "POST" });
+            const response = await fetch(`${API_URL}/queue/connect/producer`, { method: "POST" });
             const result = await response.text();
 
             document.getElementById("connect-queue-status").textContent = result;
@@ -635,13 +650,13 @@
         const topicName = document.getElementById("topic-name").value.trim();
         const queueName = document.getElementById("queue-name").value.trim();
         const messageContent = document.getElementById("queue-message-content").value.trim();
-        const messageCountInput = document.getElementById("queue-message-count").value;
+        const countInput = document.getElementById("queue-message-count").value;
         // Delivery Mode 선택된 값 가져오기
         const deliveryModeSelection = document.querySelector('input[name="delivery-mode"]:checked').value;
         const deliveryMode = DeliveryMode[deliveryModeSelection] || DeliveryMode.NON_PERSISTENT; // DeliveryMode 객체 활용
 
         // 메시지 개수 파싱
-        const messageCount = parseInt(messageCountInput, 10);
+        const count = parseInt(countInput, 10);
 
         // 필드 검증
         if (!topicName) {
@@ -656,7 +671,7 @@
             alert("Please enter Message Content.");
             return;
         }
-        if (isNaN(messageCount) || messageCount < 1) {
+        if (isNaN(count) || count < 1) {
             alert("Please enter a valid Message Count (minimum is 1).");
             return;
         }
@@ -666,14 +681,14 @@
             const response = await fetch(`${API_URL}/queue/produceTopicToQueue`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ queueName, messageContent, messageCount, deliveryMode }),
+                body: JSON.stringify({topicName, queueName, messageContent, count, deliveryMode }),
             });
 
             const result = await response.text();
 
             const statusElement = document.getElementById("queue-status-message");
             if (response.ok) {
-                statusElement.innerHTML = `<b>Message sent to queue:</b> ${queueName}<br><b>Count:</b> ${messageCount}<br><b>Mode:</b> ${deliveryMode}`;
+                statusElement.innerHTML = `<b>Message sent to topic:</b> ${topicName}<br><b>queue:</b> ${queueName}<br><b>Count:</b> ${count}<br><b>Mode:</b> ${deliveryMode}</br><b>Message sent to :</b> ${messageContent}<br>`;
             } else {
                 statusElement.innerHTML = `<b>Error:</b> Failed to send message to queue.<br><b>Details:</b> ${result}`;
             }
@@ -681,6 +696,60 @@
             document.getElementById("queue-status-message").innerHTML = `<b>Error:</b> ${error.message}`;
         }
     }
+
+
+// Consumer 연결
+async function connectConsumer() {
+    try {
+        const response = await fetch(`${API_URL}/queue/connect/consumer`, { method: "POST" });
+        const result = await response.text();
+
+        document.getElementById("connect-consumer-status").textContent = result;
+
+        if (response.ok) {
+            isConsumerConnected = true; // 연결 성공
+        } else {
+            alert("Failed to connect to the Queue Consumer. Please try again.");
+        }
+    } catch (error) {
+        alert("Error while connecting to Queue Consumer: " + error.message);
+    }
+}
+
+// 메시지를 소비하는 함수
+async function consumeMessage() {
+    // 연결 상태 확인
+    if (!isConsumerConnected) {
+        alert("Please connect to the Queue Consumer before consuming messages.");
+        return;
+    }
+
+    const queueName = document.getElementById("consumer-queue-name").value.trim();
+
+    if (!queueName) {
+        alert("Please enter a Queue Name to start consuming messages.");
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/queue/consumeQueue`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ queueName }),
+        });
+        ///////////////////////////
+        if (response.ok) {
+            // WebSocket 연결 (구독 요청 성공 후)
+            connectWebSocket("Queue");
+
+            document.getElementById("consume-status-message").textContent = "Messages consumed successfully!";
+        } else {
+            document.getElementById("consume-status-message").textContent = "Failed to consume messages.";
+        }
+    } catch (error) {
+        document.getElementById("consume-status-message").innerHTML = `<b>Error:</b> ${error.message}`;
+    }
+}
 </script>
 </body>
 </html>

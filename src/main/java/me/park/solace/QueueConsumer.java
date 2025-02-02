@@ -1,6 +1,7 @@
 package me.park.solace;
 
 import com.solacesystems.jcsmp.*;
+import me.park.util.MessageWebSocketHandler;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -10,10 +11,12 @@ public class QueueConsumer {
     private final JCSMPSession session;
     private FlowReceiver receiver = null;  // FlowReceiver를 멤버로 선언
     private volatile boolean running = true; // Consumer 상태 플래그
+    private final MessageWebSocketHandler webSocketHandler;
 
     @Autowired
-    public QueueConsumer(JCSMPSession session) {
+    public QueueConsumer(JCSMPSession session, MessageWebSocketHandler webSocketHandler) {
         this.session = session;
+        this.webSocketHandler = webSocketHandler;
     }
 
     // Solace 세션 연결
@@ -30,6 +33,7 @@ public class QueueConsumer {
 
     // Queue 메시지 소비 메서드
     public void consumeQueue(String queueName) throws JCSMPException {
+        System.out.println("consumeQueue : queue Name=" + queueName);
         // Queue 객체 생성
         Queue queue = JCSMPFactory.onlyInstance().createQueue(queueName);
 
@@ -39,14 +43,18 @@ public class QueueConsumer {
         flowProp.setAckMode(JCSMPProperties.SUPPORTED_MESSAGE_ACK_CLIENT);
 
         // 메시지 리스너 설정
-        receiver = session.createFlow(new XMLMessageListener() {
+        receiver = session.createFlow(new  XMLMessageListener() {
             @Override
             public void onReceive(BytesXMLMessage msg) {
                 try {
                     if (!running) return; // running 상태가 false면 중단
                     if (msg instanceof TextMessage) {
-                        String text = ((TextMessage) msg).getText();
-                        System.out.printf("Received TextMessage: %s%n", text);
+                        String receivedMessage = ((TextMessage) msg).getText();
+                        System.out.printf("Received TextMessage: %s%n", receivedMessage);
+
+                        // WebSocket을 통해 프론트엔드로 메시지 전송
+                        webSocketHandler.broadcast(receivedMessage);
+
                     } else {
                         System.out.println("Received Non-Text Message.");
                     }

@@ -85,7 +85,7 @@ public class QueueProducer {
                     // 브로커 처리 성공 시
                     @Override
                     public void responseReceivedEx(Object key) {
-                        System.out.println("Producer received response for msg: " + key.toString());
+                        System.out.println("Producer received to Broker response for msg: " + key.toString());
                     }
 
                     // 브로커 처리 실패 시
@@ -102,6 +102,7 @@ public class QueueProducer {
             msg.setText(message + " #" + i); // 메시지 내용 생성
             msg.setCorrelationKey(i);       // 확인 용도 Key 설정
             producer.send(msg, queue);      // 토픽에 메시지 전송
+            System.out.println("Producer send Broker msg :"+msg);
         }
     }
 
@@ -124,7 +125,7 @@ public class QueueProducer {
                     // 브로커 처리 성공 시
                     @Override
                     public void responseReceivedEx(Object key) {
-                        System.out.println("Producer received response for msg: " + key.toString());
+                        System.out.println("Producer received to Broker response for msg:" + key.toString());
                     }
 
                     // 브로커 처리 실패 시

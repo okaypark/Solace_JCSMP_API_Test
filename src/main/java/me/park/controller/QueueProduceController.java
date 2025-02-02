@@ -25,7 +25,7 @@ public class QueueProduceController {
     }
 
     //Event Broker에 연결
-    @PostMapping("/connect")
+    @PostMapping("/connect/producer")
     public String connect() {
         try {
             queueProduceService.connect();
@@ -53,9 +53,17 @@ public class QueueProduceController {
     @PostMapping("/produceTopicToQueue")
     public String produce(@RequestBody ProduceTopicToQueueRequest body) {
         try {
-            String topic = body.getTopic();
+            // 요청으로부터 받은 값들을 출력
+            System.out.println("Received Request:");
+            System.out.println("Topic: " + body.getTopicName());
+            System.out.println("Queue Name: " + body.getQueueName());
+            System.out.println("Message: " + body.getMessageContent());
+            System.out.println("Delivery Mode: " + body.getDeliveryMode());
+            System.out.println("Message Count: " + body.getCount());
+
+            String topic = body.getTopicName();
             String queueName = body.getQueueName();
-            String message = body.getMessage();
+            String message = body.getMessageContent();
             DeliveryMode deliveryMode = body.getDeliveryMode();
             int count = body.getCount();
 
