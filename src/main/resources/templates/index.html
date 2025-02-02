@@ -378,6 +378,9 @@
 
     // 탭 내용을 관리하는 함수
     function showTab(tabId) {
+        // WebSocket 연결 해제
+        disconnectWebSocket();
+
         // 1. 모든 탭 콘텐츠를 숨기기
         const tabs = document.querySelectorAll('.tab-content');
         tabs.forEach(tab => tab.classList.remove('active'));
@@ -507,6 +510,13 @@
  }
 
  let socket;
+
+function disconnectWebSocket() {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close(); // WebSocket 연결 해제
+        console.log("WebSocket disconnected.");
+    }
+}
  function connectWebSocket(msgType) {
        if (socket && socket.readyState === WebSocket.OPEN) {
            console.log("WebSocket is already connected.");
@@ -535,13 +545,12 @@
    }
 
     function displayReceivedMessage(message, msgType) {
-
         let messageList;
 
-        if (msgType == "Topic") {
+        if (msgType === "Topic") {
             messageList = document.getElementById("topic-message-list");
-        } else if (msgType == "Queue") {
-            messageList = document.getElementById("consume-status-message");
+        } else if (msgType === "Queue") {
+            messageList = document.getElementById("received-messages");
         }
 
         if (messageList) {
